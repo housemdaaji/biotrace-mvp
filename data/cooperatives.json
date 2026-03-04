@@ -1,0 +1,41 @@
+[
+  {
+    "id": "coop-1",
+    "name": "Meru Central Coffee Cooperative",
+    "location": "Meru Town, Meru County",
+    "country": "Kenya",
+    "crop": "Coffee",
+    "farmerCount": 1240,
+    "certifiedFarmers": 892,
+    "apsScore": 78,
+    "lat": 0.0482,
+    "lng": 37.6521,
+    "lastUpdated": "2025-03-01T10:00:00Z"
+  },
+  {
+    "id": "coop-2",
+    "name": "Nkubu Tea Growers Union",
+    "location": "Nkubu, South Imenti",
+    "country": "Kenya",
+    "crop": "Tea",
+    "farmerCount": 680,
+    "certifiedFarmers": 512,
+    "apsScore": 84,
+    "lat": 0.0612,
+    "lng": 37.6287,
+    "lastUpdated": "2025-03-02T14:30:00Z"
+  },
+  {
+    "id": "coop-3",
+    "name": "Maua Horticulture Cooperative",
+    "location": "Maua, Igembe North",
+    "country": "Kenya",
+    "crop": "French Beans",
+    "farmerCount": 420,
+    "certifiedFarmers": 298,
+    "apsScore": 71,
+    "lat": 0.0315,
+    "lng": 37.6812,
+    "lastUpdated": "2025-02-28T09:15:00Z"
+  }
+]
