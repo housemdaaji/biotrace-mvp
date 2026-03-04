@@ -2,13 +2,17 @@ import 'leaflet/dist/leaflet.css';
 import dynamic from 'next/dynamic';
 import farmsData from '@/data/farms.json';
 import cooperativesData from '@/data/cooperatives.json';
+import ndviGridData from '@/data/ndvi_grid.json';
 import type { Farm, Cooperative } from './types';
+
+type NdviCell = { id: string; lat: number; lng: number; ndvi: number; bounds: [[number, number], [number, number]] };
 
 const MapView = dynamic(() => import('./MapView'), { ssr: false });
 
 export default function MapPage() {
   const farms = farmsData as Farm[];
   const cooperatives = cooperativesData as Cooperative[];
+  const ndviGrid = ndviGridData as NdviCell[];
 
   return (
     <main className="flex min-h-0 flex-col bg-white" style={{ height: 'calc(100vh - 4rem)' }}>
@@ -22,7 +26,7 @@ export default function MapPage() {
       </header>
 
       <div className="min-h-0 flex-1">
-        <MapView farms={farms} cooperatives={cooperatives} />
+        <MapView farms={farms} cooperatives={cooperatives} ndviGrid={ndviGrid} />
       </div>
     </main>
   );

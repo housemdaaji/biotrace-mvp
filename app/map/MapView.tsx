@@ -1,12 +1,26 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { MapContainer, TileLayer, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, Rectangle } from 'react-leaflet';
+import type { LatLngBoundsExpression } from 'leaflet';
 import type { Farm, Cooperative } from './types';
 
 const OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const CENTER: [number, number] = [0.05, 37.65];
 const ZOOM = 11;
+
+function getParcelColor(score: number): string {
+  if (score >= 70) return '#16a34a';
+  if (score >= 40) return '#f59e0b';
+  return '#ef4444';
+}
+
+function getNdviColor(ndvi: number): string {
+  if (ndvi > 0.6) return '#15803d';
+  if (ndvi >= 0.4) return '#86efac';
+  if (ndvi >= 0.2) return '#fde047';
+  return '#ef4444';
+}
 
 function getScoreColor(score: number): string {
   if (score >= 70) return '#1A7A6E';
@@ -31,19 +45,68 @@ function formatDate(dateStr: string | null): string {
   }
 }
 
+export interface NdviCell {
+  id: string;
+  lat: number;
+  lng: number;
+  ndvi: number;
+  bounds: [[number, number], [number, number]];
+}
+
 interface MapViewProps {
   farms: Farm[];
   cooperatives: Cooperative[];
+  ndviGrid: NdviCell[];
 }
 
-export default function MapView({ farms, cooperatives }: MapViewProps) {
+export default function MapView({ farms, cooperatives, ndviGrid }: MapViewProps) {
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
+  const [ndviLayerVisible, setNdviLayerVisible] = useState(true);
 
   const coopById = useMemo(() => {
     const m = new Map<string, Cooperative>();
     cooperatives.forEach((c) => m.set(c.id, c));
     return m;
   }, [cooperatives]);
+
+  const farmById = useMemo(() => {
+    const m = new Map<string, Farm>();
+    farms.forEach((f) => m.set(f.id, f));
+    return m;
+  }, [farms]);
+
+  const farmsWithBoundary = useMemo(() => farms.filter((f) => f.boundary), [farms]);
+
+  const parcelsFeatureCollection = useMemo(() => ({
+    type: 'FeatureCollection' as const,
+    features: farmsWithBoundary.map((farm) => ({
+      type: 'Feature' as const,
+      geometry: farm.boundary,
+      properties: { id: farm.id, apsScore: farm.apsScore },
+    })),
+  }), [farmsWithBoundary]);
+
+  const parcelStyle = useMemo(
+    () => (feature?: { properties?: { apsScore?: number } }) => ({
+      fillColor: getParcelColor(feature?.properties?.apsScore ?? 0),
+      fillOpacity: 0.5,
+      color: '#fff',
+      weight: 1.5,
+    }),
+    []
+  );
+
+  const handleEachParcelFeature = useMemo(
+    () => (feature: GeoJSON.Feature, layer: L.Layer) => {
+      const id = feature.properties?.id as string | undefined;
+      if (!id) return;
+      layer.on('click', () => {
+        const farm = farmById.get(id);
+        if (farm) setSelectedFarm(farm);
+      });
+    },
+    [farmById]
+  );
 
   const selectedCoop = selectedFarm ? coopById.get(selectedFarm.cooperativeId) : null;
 
@@ -56,37 +119,59 @@ export default function MapView({ farms, cooperatives }: MapViewProps) {
         style={{ height: '100%', width: '100%', background: '#f1f5f9' }}
       >
         <TileLayer url={OSM_URL} attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
-        {farms.map((farm) => (
-          <CircleMarker
-            key={farm.id}
-            center={[farm.lat, farm.lng]}
-            radius={10}
-            pathOptions={{
-              fillColor: getScoreColor(farm.apsScore),
-              color: '#fff',
-              weight: 2,
-              fillOpacity: 0.9,
-            }}
-            eventHandlers={{
-              click: () => setSelectedFarm(farm),
-            }}
-          />
-        ))}
+
+        {/* Farm parcels as GeoJSON polygons */}
+        <GeoJSON
+          key="parcels"
+          data={parcelsFeatureCollection}
+          style={parcelStyle}
+          onEachFeature={handleEachParcelFeature}
+        />
+
+        {/* NDVI overlay as rectangles */}
+        {ndviLayerVisible &&
+          ndviGrid.map((cell) => (
+            <Rectangle
+              key={cell.id}
+              bounds={cell.bounds as LatLngBoundsExpression}
+              pathOptions={{
+                fillColor: getNdviColor(cell.ndvi),
+                fillOpacity: 0.35,
+                color: getNdviColor(cell.ndvi),
+                weight: 0.5,
+              }}
+            />
+          ))}
+
+        {/* Layer toggle */}
+        <div className="absolute right-4 top-4 z-[1000] flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setNdviLayerVisible((v) => !v)}
+            className={`rounded-lg border px-3 py-2 text-sm font-medium shadow-md transition-colors ${
+              ndviLayerVisible
+                ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            {ndviLayerVisible ? 'Hide NDVI' : 'Show NDVI'}
+          </button>
+        </div>
 
         {/* Legend */}
         <div className="absolute bottom-4 left-4 z-[1000] rounded-lg border border-gray-200 bg-white/95 px-4 py-3 shadow-md">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600">APS Score</p>
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: '#1A7A6E' }} />
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: '#16a34a' }} />
               <span className="text-sm text-gray-700">Good (≥70)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: '#F59E0B' }} />
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
               <span className="text-sm text-gray-700">Moderate (40–69)</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: '#EF4444' }} />
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: '#ef4444' }} />
               <span className="text-sm text-gray-700">At risk (&lt;40)</span>
             </div>
           </div>

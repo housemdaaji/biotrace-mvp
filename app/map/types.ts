@@ -1,3 +1,8 @@
+export type GeoJSONPolygon = {
+  type: 'Polygon';
+  coordinates: number[][][];
+};
+
 export interface Farm {
   id: string;
   cooperativeId: string;
@@ -13,6 +18,7 @@ export interface Farm {
   certificateId: string | null;
   certificateDate: string | null;
   status: 'certified' | 'pending' | 'at-risk';
+  boundary: GeoJSONPolygon;
 }
 
 export interface Cooperative {
