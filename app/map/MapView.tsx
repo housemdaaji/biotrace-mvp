@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Rectangle, Marker } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
@@ -61,16 +61,46 @@ export interface NdviCell {
   bounds: [[number, number], [number, number]];
 }
 
+export interface NdviTemporalData {
+  months: string[];
+  snapshots: Record<string, NdviCell[]>;
+}
+
 interface MapViewProps {
   farms: Farm[];
   cooperatives: Cooperative[];
-  ndviGrid: NdviCell[];
+  ndviTemporalData: NdviTemporalData;
 }
 
-export default function MapView({ farms, cooperatives, ndviGrid }: MapViewProps) {
+const MONTH_COUNT = 6;
+const LAST_MONTH_INDEX = MONTH_COUNT - 1;
+
+export default function MapView({ farms, cooperatives, ndviTemporalData }: MapViewProps) {
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
   const [ndviLayerVisible, setNdviLayerVisible] = useState(true);
   const [legendCollapsed, setLegendCollapsed] = useState(false);
+  const [monthIndex, setMonthIndex] = useState(LAST_MONTH_INDEX);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const months = ndviTemporalData.months;
+  const activeSnapshot = useMemo(
+    () => (months[monthIndex] ? ndviTemporalData.snapshots[months[monthIndex]] ?? [] : []),
+    [ndviTemporalData.snapshots, months, monthIndex]
+  );
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    const id = setInterval(() => {
+      setMonthIndex((prev) => {
+        if (prev >= LAST_MONTH_INDEX) {
+          setIsPlaying(false);
+          return LAST_MONTH_INDEX;
+        }
+        return prev + 1;
+      });
+    }, 1200);
+    return () => clearInterval(id);
+  }, [isPlaying]);
 
   const coopById = useMemo(() => {
     const m = new Map<string, Cooperative>();
@@ -166,9 +196,9 @@ export default function MapView({ farms, cooperatives, ndviGrid }: MapViewProps)
           />
         ))}
 
-        {/* NDVI overlay as rectangles */}
+        {/* NDVI overlay as rectangles (active month snapshot) */}
         {ndviLayerVisible &&
-          ndviGrid.map((cell) => (
+          activeSnapshot.map((cell) => (
             <Rectangle
               key={cell.id}
               bounds={cell.bounds as LatLngBoundsExpression}
@@ -194,6 +224,52 @@ export default function MapView({ farms, cooperatives, ndviGrid }: MapViewProps)
           >
             {ndviLayerVisible ? 'Hide NDVI' : 'Show NDVI'}
           </button>
+        </div>
+
+        {/* Temporal slider — bottom-center */}
+        <div className="absolute bottom-6 left-1/2 z-[1000] w-full max-w-[380px] -translate-x-1/2 px-4 sm:px-0">
+          <div className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-md">
+            <button
+              type="button"
+              onClick={() => setIsPlaying((p) => !p)}
+              className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
+              aria-label={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? (
+                <span className="text-sm" aria-hidden>⏸</span>
+              ) : (
+                <span className="text-sm" aria-hidden>▶</span>
+              )}
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-600">🛰 Satellite Timeline</span>
+                <span className="text-sm font-bold text-[#1A7A6E]">{months[monthIndex] ?? ''}</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={LAST_MONTH_INDEX}
+                step={1}
+                value={monthIndex}
+                onChange={(e) => setMonthIndex(Number(e.target.value))}
+                className="mt-2 w-full accent-[#1A7A6E]"
+              />
+              <div className="mt-1.5 flex justify-between text-xs">
+                {months.map((month, i) => (
+                  <button
+                    key={month}
+                    type="button"
+                    onClick={() => setMonthIndex(i)}
+                    className={`shrink-0 truncate px-0.5 ${i === monthIndex ? 'font-medium text-[#1A7A6E]' : 'text-gray-500 hover:text-gray-700'}`}
+                    title={month}
+                  >
+                    {month.split(' ')[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Full legend panel */}
