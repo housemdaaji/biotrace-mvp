@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import 'leaflet/dist/leaflet.css';
 import dynamic from 'next/dynamic';
 import farmsData from '@/data/farms.json';
@@ -11,10 +12,24 @@ import DemoResetButton from '@/app/components/DemoResetButton';
 
 const MapView = dynamic(() => import('./MapView'), { ssr: false });
 
+const REGISTERED_FARMS_KEY = 'biotrace_registered_farms';
+
 export default function MapPage() {
-  const farms = farmsData as Farm[];
+  const staticFarms = farmsData as Farm[];
+  const [farms, setFarms] = useState<Farm[]>(staticFarms);
   const cooperatives = cooperativesData as Cooperative[];
   const ndviTemporalData = ndviGridData as unknown as NdviTemporalData;
+
+  useEffect(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(REGISTERED_FARMS_KEY) : null;
+      if (!raw) return;
+      const registered = JSON.parse(raw) as Farm[];
+      setFarms([...staticFarms, ...registered]);
+    } catch {
+      // ignore invalid stored data
+    }
+  }, [staticFarms]);
 
   return (
     <main className="flex min-h-0 flex-col bg-white" style={{ height: 'calc(100vh - 4rem)' }}>

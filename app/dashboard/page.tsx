@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
   BarChart,
   Bar,
@@ -106,6 +107,17 @@ export default function DashboardPage() {
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex-1" />
+          <Link href="/dashboard/register">
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-lg bg-[#1A7A6E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#15635A] transition-colors"
+            >
+              + Register New Farm
+            </button>
+          </Link>
+        </div>
         {/* Cooperative selector */}
         <div className="mb-6">
           <label htmlFor="coop-select" className="mb-2 block text-sm font-medium text-gray-700">
