@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 
 import cooperativesData from '@/data/cooperatives.json';
 import farmsData from '@/data/farms.json';
+import { computeAGB, computeCarbonProxy } from '@/lib/biomass';
 
 type Cooperative = (typeof cooperativesData)[number];
 type Farm = (typeof farmsData)[number];
@@ -51,6 +52,12 @@ function generateESGReport(coop: Cooperative, farms: Farm[]) {
       : 0;
   const certified = coopFarms.filter((f) => f.apsScore >= 70).length;
   const eudrCompliant = coopFarms.every((f) => !('deforestationRisk' in f && f.deforestationRisk));
+  const avgNdvi =
+    coopFarms.length > 0
+      ? coopFarms.reduce((sum, f) => sum + (f.ndvi ?? 0.5), 0) / coopFarms.length
+      : 0.5;
+  const coopAGB = computeAGB(avgNdvi);
+  const coopCarbon = computeCarbonProxy(coopAGB);
 
   // Header bar
   doc.setFillColor(26, 122, 110);
@@ -83,7 +90,10 @@ function generateESGReport(coop: Cooperative, farms: Farm[]) {
     { label: 'APS Score', value: `${avgAPS}/100` },
     { label: 'Certified Farms', value: `${certified}/${coopFarms.length}` },
     { label: 'EUDR Status', value: eudrCompliant ? 'Compliant ✓' : 'At Risk ✗' },
-    { label: 'Carbon Proxy', value: `~${(avgAPS * 0.12).toFixed(1)} tCO₂/ha/yr` },
+    {
+      label: 'Carbon Proxy',
+      value: `~${coopCarbon} tCO₂e/ha (Sentinel-2 proxy, IPCC methodology)`,
+    },
   ];
   metrics.forEach((m, i) => {
     const x = 14 + i * 47;

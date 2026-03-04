@@ -20,6 +20,12 @@ export interface Farm {
   status: 'certified' | 'pending' | 'at-risk';
   boundary: GeoJSONPolygon;
   deforestationRisk: boolean;
+  /** Optional: from Sentinel-2 / ndvi_grid; used to compute AGB & carbon proxy */
+  ndvi?: number;
+  /** Optional: computed from NDVI (AGB = NDVI × 50), not stored */
+  agb?: number;
+  /** Optional: computed from AGB (tCO₂e = AGB × 0.47 × 3.67), not stored */
+  carbonProxy?: number;
 }
 
 export interface Cooperative {

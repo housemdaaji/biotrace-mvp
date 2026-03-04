@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, GeoJSON, Rectangle, Marker } from 'react-leafl
 import { divIcon } from 'leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
 import type { Farm, Cooperative } from './types';
+import { computeAGB, computeCarbonProxy, agbRating, carbonRating } from '@/lib/biomass';
 
 const OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const CENTER: [number, number] = [0.05, 37.65];
@@ -165,6 +166,11 @@ export default function MapView({ farms, cooperatives, ndviTemporalData }: MapVi
   );
 
   const selectedCoop = selectedFarm ? coopById.get(selectedFarm.cooperativeId) : null;
+  const ndviForFarm = selectedFarm ? (selectedFarm.ndvi ?? 0.5) : 0;
+  const agb = selectedFarm ? computeAGB(ndviForFarm) : 0;
+  const carbon = selectedFarm ? computeCarbonProxy(agb) : 0;
+  const agbInfo = agbRating(agb);
+  const carbonInfo = carbonRating(carbon);
 
   return (
     <div className="relative h-full w-full min-h-[300px]" style={{ height: '100%', minHeight: '300px' }}>
@@ -346,6 +352,26 @@ export default function MapView({ farms, cooperatives, ndviTemporalData }: MapVi
                   <span className="text-sm text-gray-700">⚠️ Red dashed border = Deforestation Risk</span>
                 </div>
               </div>
+              {/* Section 4 — Biomass Scale */}
+              <div className="mt-2 border-t border-gray-100 pt-2">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Biomass (AGB)
+                </p>
+                {[
+                  { color: '#16a34a', label: '≥25 t/ha — High' },
+                  { color: '#d97706', label: '15–24 t/ha — Moderate' },
+                  { color: '#dc2626', label: '<15 t/ha — Low' },
+                ].map(({ color, label }) => (
+                  <div key={label} className="mb-1 flex items-center gap-2">
+                    <div
+                      className="h-3 w-3 flex-shrink-0 rounded-sm"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-xs text-gray-600">{label}</span>
+                  </div>
+                ))}
+                <p className="mt-1 text-xs italic text-gray-400">Click any parcel to view full details</p>
+              </div>
             </div>
           )}
         </div>
@@ -395,6 +421,77 @@ export default function MapView({ farms, cooperatives, ndviTemporalData }: MapVi
                   {selectedFarm.apsScore}
                 </dd>
               </div>
+
+              {/* ── Biomass & Carbon Section ── */}
+              <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-base" aria-hidden>🌿</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    Biomass & Carbon
+                  </span>
+                  <span className="ml-auto rounded-full bg-[#1A7A6E]/10 px-2 py-0.5 text-xs text-[#1A7A6E]">
+                    Sentinel-2 proxy
+                  </span>
+                </div>
+                <div
+                  className="mb-2 rounded-lg p-3"
+                  style={{ backgroundColor: agbInfo.bg }}
+                >
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-gray-600">Above-Ground Biomass</span>
+                    <span className="text-lg font-bold" style={{ color: agbInfo.color }}>
+                      {agb} <span className="text-xs font-normal">t/ha</span>
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs font-medium" style={{ color: agbInfo.color }}>
+                    {agbInfo.label}
+                  </div>
+                  <div className="mt-2 h-1.5 w-full rounded-full bg-white/60">
+                    <div
+                      className="h-1.5 rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(100, (agb / 35) * 100)}%`,
+                        backgroundColor: agbInfo.color,
+                      }}
+                    />
+                  </div>
+                  <div className="mt-0.5 flex justify-between text-xs text-gray-400">
+                    <span>0</span>
+                    <span>35 t/ha max</span>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-gray-100 bg-white p-3">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-gray-600">Carbon Sequestration Proxy</span>
+                    <span className="text-lg font-bold" style={{ color: carbonInfo.color }}>
+                      ~{carbon}
+                      <span className="text-xs font-normal"> tCO₂e/ha</span>
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs font-medium" style={{ color: carbonInfo.color }}>
+                    {carbonInfo.label}
+                  </div>
+                </div>
+                <details className="mt-3">
+                  <summary className="cursor-pointer select-none text-xs text-gray-400 hover:text-gray-600">
+                    ▸ How is this calculated?
+                  </summary>
+                  <div className="mt-2 space-y-1 rounded-lg border border-gray-100 bg-white p-3 text-xs text-gray-500">
+                    <p>
+                      <span className="font-mono text-[#1A7A6E]">AGB = NDVI × 50</span>
+                      <span className="ml-1">(proxy model, t/ha)</span>
+                    </p>
+                    <p>
+                      <span className="font-mono text-[#1A7A6E]">tCO₂e = AGB × 0.47 × 3.67</span>
+                    </p>
+                    <p className="italic text-gray-400">
+                      IPCC carbon fraction (0.47) × CO₂/C ratio (3.67). Proxy only — not validated for carbon credit
+                      issuance. Phase 2 integrates CGIAR-reviewed allometric models.
+                    </p>
+                  </div>
+                </details>
+              </div>
+
               <div>
                 <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Certificate status</dt>
                 <dd className="mt-1">
