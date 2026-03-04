@@ -1,12 +1,146 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import jsPDF from 'jspdf';
 
 import cooperativesData from '@/data/cooperatives.json';
 import farmsData from '@/data/farms.json';
 
 type Cooperative = (typeof cooperativesData)[number];
 type Farm = (typeof farmsData)[number];
+
+function generateESGReport(coop: Cooperative, farms: Farm[]) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const coopFarms = farms.filter((f) => f.cooperativeId === coop.id);
+  const avgAPS =
+    coopFarms.length > 0
+      ? Math.round(coopFarms.reduce((s, f) => s + f.apsScore, 0) / coopFarms.length)
+      : 0;
+  const certified = coopFarms.filter((f) => f.apsScore >= 70).length;
+  const eudrCompliant = coopFarms.every((f) => !('deforestationRisk' in f && f.deforestationRisk));
+
+  // Header bar
+  doc.setFillColor(26, 122, 110);
+  doc.rect(0, 0, 210, 28, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('BioTrace ESG Report', 14, 12);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Satellite-Verified Agroecological Performance', 14, 20);
+  doc.text(`Generated: ${new Date().toLocaleDateString('en-GB')}`, 150, 20);
+
+  // Cooperative name
+  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text(coop.name, 14, 42);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 100, 100);
+  doc.text(`${coop.country} · ${coop.crop} · ${coop.farmerCount} farmers`, 14, 50);
+
+  // Divider
+  doc.setDrawColor(220, 220, 220);
+  doc.line(14, 55, 196, 55);
+
+  // Key metrics row
+  const metrics = [
+    { label: 'APS Score', value: `${avgAPS}/100` },
+    { label: 'Certified Farms', value: `${certified}/${coopFarms.length}` },
+    { label: 'EUDR Status', value: eudrCompliant ? 'Compliant ✓' : 'At Risk ✗' },
+    { label: 'Carbon Proxy', value: `~${(avgAPS * 0.12).toFixed(1)} tCO₂/ha/yr` },
+  ];
+  metrics.forEach((m, i) => {
+    const x = 14 + i * 47;
+    doc.setFillColor(245, 247, 246);
+    doc.roundedRect(x, 60, 43, 22, 2, 2, 'F');
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(26, 122, 110);
+    doc.text(m.value, x + 21.5, 70, { align: 'center' });
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    doc.text(m.label, x + 21.5, 77, { align: 'center' });
+  });
+
+  // Practice scores section — map label keys to farm fields
+  const practiceKeyMap: Record<string, keyof Farm> = {
+    soilHealth: 'soilScore',
+    waterManagement: 'waterScore',
+    biodiversity: 'biodiversityScore',
+    deforestationScore: 'deforestationScore',
+    carbonScore: 'carbonScore',
+  };
+  const practices = [
+    { name: 'Soil Health', key: 'soilHealth' },
+    { name: 'Water Management', key: 'waterManagement' },
+    { name: 'Biodiversity', key: 'biodiversity' },
+    { name: 'Deforestation-Free', key: 'deforestationScore' },
+    { name: 'Carbon Proxy', key: 'carbonScore' },
+  ];
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 30, 30);
+  doc.text('Agroecological Practice Scores', 14, 96);
+  doc.line(14, 99, 196, 99);
+
+  practices.forEach((p, i) => {
+    const y = 108 + i * 14;
+    const farmKey = practiceKeyMap[p.key];
+    const avg =
+      coopFarms.length > 0
+        ? Math.round(
+            coopFarms.reduce((s, f) => s + ((farmKey && (f[farmKey] as number)) ?? 0), 0) / coopFarms.length
+          )
+        : 0;
+    const barWidth = (avg / 100) * 120;
+    const color: [number, number, number] =
+      avg >= 70 ? [22, 163, 74] : avg >= 40 ? [245, 158, 11] : [239, 68, 68];
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(60, 60, 60);
+    doc.text(p.name, 14, y + 5);
+    doc.setFillColor(235, 235, 235);
+    doc.roundedRect(70, y, 120, 7, 1, 1, 'F');
+    doc.setFillColor(color[0], color[1], color[2]);
+    doc.roundedRect(70, y, barWidth, 7, 1, 1, 'F');
+    doc.setTextColor(60, 60, 60);
+    doc.text(`${avg}`, 195, y + 5.5, { align: 'right' });
+  });
+
+  // Satellite evidence note
+  doc.setFillColor(240, 249, 247);
+  doc.roundedRect(14, 185, 182, 18, 2, 2, 'F');
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(26, 122, 110);
+  doc.text('🛰  Satellite Evidence', 18, 193);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(60, 60, 60);
+  doc.text(
+    'Scores computed from Sentinel-2 imagery (10m resolution, 5-day revisit). NDVI, canopy',
+    18,
+    199
+  );
+  doc.text('cover, and land use classification verified across 6-month temporal baseline.', 18, 204);
+
+  // Footer
+  doc.setFillColor(26, 122, 110);
+  doc.rect(0, 282, 210, 15, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  doc.text(
+    'BioTrace · M4D Open Innovation Challenge 2026 · biotrace-mvp.vercel.app',
+    105,
+    291,
+    { align: 'center' }
+  );
+
+  doc.save(`BioTrace_ESG_${coop.name.replace(/\s+/g, '_')}_${new Date().getFullYear()}.pdf`);
+}
 
 const MIN_APS_OPTIONS = [
   { value: '', label: 'Any' },
@@ -266,15 +400,12 @@ export default function BuyersPage() {
                           Contact Cooperative
                         </a>
                         <button
-                            type="button"
-                            title="Full PDF available in Phase 2"
-                            className="group relative rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                          >
-                            Download ESG Report
-                            <span className="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-                              Full PDF available in Phase 2
-                            </span>
-                          </button>
+                          type="button"
+                          onClick={() => generateESGReport(coop, farms)}
+                          className="flex items-center gap-2 rounded-lg bg-[#1A7A6E] px-4 py-2 text-sm font-medium text-white hover:bg-[#15635A] transition-colors"
+                        >
+                          ⬇ Download ESG Report (PDF)
+                        </button>
                       </div>
                     </div>
                   )}
