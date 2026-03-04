@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 
 import cooperativesData from '@/data/cooperatives.json';
@@ -8,6 +8,39 @@ import farmsData from '@/data/farms.json';
 
 type Cooperative = (typeof cooperativesData)[number];
 type Farm = (typeof farmsData)[number];
+
+const INQUIRY_STORAGE_KEY = 'biotrace_buyer_inquiries';
+
+const PRODUCT_OPTIONS = [
+  { value: 'coffee', label: 'Coffee' },
+  { value: 'cocoa', label: 'Cocoa' },
+  { value: 'cashew', label: 'Cashew' },
+  { value: 'cereals', label: 'Cereals' },
+  { value: 'banana', label: 'Banana' },
+  { value: 'other', label: 'Other' },
+];
+
+const VOLUME_OPTIONS = [
+  { value: '< 1 tonne', label: '< 1 tonne' },
+  { value: '1–10 tonnes', label: '1–10 tonnes' },
+  { value: '10–50 tonnes', label: '10–50 tonnes' },
+  { value: '50–500 tonnes', label: '50–500 tonnes' },
+  { value: '500+ tonnes', label: '500+ tonnes' },
+];
+
+const PURPOSE_OPTIONS = [
+  { value: 'EUDR compliance documentation', label: 'EUDR compliance documentation' },
+  { value: 'ESG / sustainability reporting', label: 'ESG / sustainability reporting' },
+  { value: 'Direct trade / premium sourcing', label: 'Direct trade / premium sourcing' },
+  { value: 'Research or due diligence', label: 'Research or due diligence' },
+  { value: 'Other', label: 'Other' },
+];
+
+function productValueFromCrop(crop: string): string {
+  const lower = crop.toLowerCase();
+  if (PRODUCT_OPTIONS.some((o) => o.value === lower)) return lower;
+  return 'other';
+}
 
 function generateESGReport(coop: Cooperative, farms: Farm[]) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -211,6 +244,43 @@ export default function BuyersPage() {
   const [cropFilter, setCropFilter] = useState('');
   const [minAps, setMinAps] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [inquiryTarget, setInquiryTarget] = useState<CooperativeWithMetrics | null>(null);
+  const [inquirySubmitted, setInquirySubmitted] = useState(false);
+  const [inquiryCounts, setInquiryCounts] = useState<Record<string, number>>({});
+  const [inquiryForm, setInquiryForm] = useState({
+    buyerName: '',
+    company: '',
+    email: '',
+    phone: '',
+    country: '',
+    productInterest: '',
+    annualVolume: '',
+    purposes: [] as string[],
+    message: '',
+    acknowledgement: false,
+  });
+  const [inquiryTouched, setInquiryTouched] = useState(false);
+  const [inquirySubmitting, setInquirySubmitting] = useState(false);
+
+  useEffect(() => {
+    document.body.style.overflow = inquiryTarget ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [inquiryTarget]);
+
+  useEffect(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(INQUIRY_STORAGE_KEY) : null;
+      if (!raw) return;
+      const inquiries = JSON.parse(raw) as { cooperativeId: string }[];
+      const counts: Record<string, number> = {};
+      inquiries.forEach((inq) => {
+        counts[inq.cooperativeId] = (counts[inq.cooperativeId] || 0) + 1;
+      });
+      setInquiryCounts(counts);
+    } catch {}
+  }, [inquiryTarget, inquirySubmitted]);
 
   const cropOptions = useMemo(() => {
     const crops = Array.from(new Set(cooperatives.map((c) => c.crop).filter(Boolean)));
@@ -320,7 +390,14 @@ export default function BuyersPage() {
               return (
                 <div key={coop.id} className="flex flex-col">
                   <article className="flex flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                    <h2 className="text-lg font-bold text-gray-900">{coop.name}</h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-lg font-bold text-gray-900">{coop.name}</h2>
+                      {inquiryCounts[coop.id] > 0 && (
+                        <span className="rounded-full bg-[#1A7A6E] px-2 py-0.5 text-xs font-medium text-white">
+                          {inquiryCounts[coop.id]} {inquiryCounts[coop.id] === 1 ? 'inquiry' : 'inquiries'}
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-1 text-sm text-gray-600">
                       {coop.country} · {coop.crop}
                     </p>
@@ -406,6 +483,21 @@ export default function BuyersPage() {
                         >
                           ⬇ Download ESG Report (PDF)
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInquiryTarget(coop);
+                            setInquirySubmitted(false);
+                            setInquiryTouched(false);
+                            setInquiryForm((prev) => ({
+                              ...prev,
+                              productInterest: productValueFromCrop(coop.crop),
+                            }));
+                          }}
+                          className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-[#1A7A6E] px-4 py-2.5 text-sm font-semibold text-[#1A7A6E] hover:bg-[#f0faf9] transition-colors"
+                        >
+                          ✉ Contact This Cooperative
+                        </button>
                       </div>
                     </div>
                   )}
@@ -415,6 +507,317 @@ export default function BuyersPage() {
           </div>
         )}
       </div>
+
+      {/* Inquiry modal */}
+      {inquiryTarget && (
+        <div
+          className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => e.target === e.currentTarget && setInquiryTarget(null)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setInquiryTarget(null);
+                setInquirySubmitted(false);
+              }}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+              aria-label="Close"
+            >
+              ×
+            </button>
+
+            {inquirySubmitted ? (
+              /* Success state */
+              <div className="text-center">
+                <p className="text-4xl" aria-hidden>✅</p>
+                <h3 className="mt-4 text-xl font-semibold text-gray-900">Inquiry Sent Successfully</h3>
+                <p className="mt-2 text-sm text-gray-600">
+                  {inquiryForm.company || 'Your company'}, your inquiry has been submitted to {inquiryTarget.name}.
+                </p>
+                <p className="mt-2 text-xs font-mono text-gray-500">
+                  Reference ID: INQ-{String(Date.now()).slice(-6)}
+                </p>
+                <div className="mt-6 rounded-lg bg-gray-50 p-4 text-left text-sm text-gray-600">
+                  <p className="font-medium text-gray-700">What happens next:</p>
+                  <ol className="mt-2 list-inside list-decimal space-y-1">
+                    <li>Cooperative manager notified</li>
+                    <li>Manager reviews your sourcing needs</li>
+                    <li>Direct introduction within 48 hours</li>
+                  </ol>
+                </div>
+                <div className="mt-6 flex flex-wrap justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => generateESGReport(inquiryTarget, farms)}
+                    className="rounded-lg bg-[#1A7A6E] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#15635A] transition-colors"
+                  >
+                    Download ESG Report
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInquiryTarget(null);
+                      setInquirySubmitted(false);
+                    }}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Form */
+              <>
+                <h3 className="pr-8 text-lg font-bold text-gray-900">✉ Sourcing Inquiry</h3>
+                <p className="mt-1 text-sm font-medium text-gray-600">
+                  {inquiryTarget.name} · {inquiryTarget.country} · {inquiryTarget.crop}
+                </p>
+                <p className="mt-2 text-xs text-gray-500">
+                  Your inquiry will be forwarded to the cooperative manager. BioTrace does not share your contact
+                  details without consent.
+                </p>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    setInquiryTouched(true);
+                    const valid =
+                      inquiryForm.buyerName.trim() &&
+                      inquiryForm.company.trim() &&
+                      inquiryForm.email.trim() &&
+                      inquiryForm.annualVolume &&
+                      inquiryForm.purposes.length > 0 &&
+                      inquiryForm.acknowledgement;
+                    if (!valid) return;
+                    setInquirySubmitting(true);
+                    const inquiry = {
+                      id: 'inquiry-' + Date.now(),
+                      cooperativeId: inquiryTarget.id,
+                      cooperativeName: inquiryTarget.name,
+                      buyerName: inquiryForm.buyerName.trim(),
+                      company: inquiryForm.company.trim(),
+                      email: inquiryForm.email.trim(),
+                      phone: inquiryForm.phone.trim() || undefined,
+                      country: inquiryForm.country.trim(),
+                      productInterest: inquiryForm.productInterest,
+                      annualVolume: inquiryForm.annualVolume,
+                      purposes: inquiryForm.purposes,
+                      message: inquiryForm.message.trim() || undefined,
+                      submittedAt: new Date().toISOString(),
+                      status: 'pending',
+                    };
+                    try {
+                      const raw = localStorage.getItem(INQUIRY_STORAGE_KEY);
+                      const existing = raw ? JSON.parse(raw) : [];
+                      localStorage.setItem(INQUIRY_STORAGE_KEY, JSON.stringify([...existing, inquiry]));
+                      setInquirySubmitted(true);
+                      const counts = { ...inquiryCounts };
+                      counts[inquiryTarget.id] = (counts[inquiryTarget.id] || 0) + 1;
+                      setInquiryCounts(counts);
+                    } finally {
+                      setInquirySubmitting(false);
+                    }
+                  }}
+                  className="mt-6 space-y-6"
+                >
+                  <div className="border-t border-gray-100 pt-4">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      Section 1 — Your Details
+                    </p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Full Name *</label>
+                        <input
+                          type="text"
+                          required
+                          value={inquiryForm.buyerName}
+                          onChange={(e) => setInquiryForm((f) => ({ ...f, buyerName: e.target.value }))}
+                          className={`w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-[#1A7A6E] focus:border-transparent ${
+                            inquiryTouched && !inquiryForm.buyerName.trim() ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {inquiryTouched && !inquiryForm.buyerName.trim() && (
+                          <p className="mt-0.5 text-xs text-red-600">Required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Company / Organization *</label>
+                        <input
+                          type="text"
+                          required
+                          value={inquiryForm.company}
+                          onChange={(e) => setInquiryForm((f) => ({ ...f, company: e.target.value }))}
+                          className={`w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-[#1A7A6E] focus:border-transparent ${
+                            inquiryTouched && !inquiryForm.company.trim() ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {inquiryTouched && !inquiryForm.company.trim() && (
+                          <p className="mt-0.5 text-xs text-red-600">Required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Email Address *</label>
+                        <input
+                          type="email"
+                          required
+                          value={inquiryForm.email}
+                          onChange={(e) => setInquiryForm((f) => ({ ...f, email: e.target.value }))}
+                          className={`w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-[#1A7A6E] focus:border-transparent ${
+                            inquiryTouched && !inquiryForm.email.trim() ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {inquiryTouched && !inquiryForm.email.trim() && (
+                          <p className="mt-0.5 text-xs text-red-600">Required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Phone Number (optional)</label>
+                        <input
+                          type="text"
+                          value={inquiryForm.phone}
+                          onChange={(e) => setInquiryForm((f) => ({ ...f, phone: e.target.value }))}
+                          placeholder="+1 212 555 0100"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1A7A6E]"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Country *</label>
+                        <input
+                          type="text"
+                          required
+                          value={inquiryForm.country}
+                          onChange={(e) => setInquiryForm((f) => ({ ...f, country: e.target.value }))}
+                          placeholder="e.g. Netherlands, Germany, UAE"
+                          className={`w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-[#1A7A6E] focus:border-transparent ${
+                            inquiryTouched && !inquiryForm.country.trim() ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        />
+                        {inquiryTouched && !inquiryForm.country.trim() && (
+                          <p className="mt-0.5 text-xs text-red-600">Required</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-100 pt-4">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      Section 2 — Sourcing Intent
+                    </p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Product Interest *</label>
+                        <select
+                          required
+                          value={inquiryForm.productInterest}
+                          onChange={(e) => setInquiryForm((f) => ({ ...f, productInterest: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1A7A6E]"
+                        >
+                          <option value="">Select</option>
+                          {PRODUCT_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Estimated Annual Volume *</label>
+                        <select
+                          required
+                          value={inquiryForm.annualVolume}
+                          onChange={(e) => setInquiryForm((f) => ({ ...f, annualVolume: e.target.value }))}
+                          className={`w-full rounded-lg border px-3 py-2 focus:ring-2 focus:ring-[#1A7A6E] focus:border-transparent ${
+                            inquiryTouched && !inquiryForm.annualVolume ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                        >
+                          <option value="">Select</option>
+                          {VOLUME_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                        {inquiryTouched && !inquiryForm.annualVolume && (
+                          <p className="mt-0.5 text-xs text-red-600">Required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-gray-700">Purpose (check all that apply) *</label>
+                        <div className="space-y-2">
+                          {PURPOSE_OPTIONS.map((o) => (
+                            <label key={o.value} className="flex cursor-pointer items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={inquiryForm.purposes.includes(o.value)}
+                                onChange={(e) => {
+                                  setInquiryForm((f) => ({
+                                    ...f,
+                                    purposes: e.target.checked
+                                      ? [...f.purposes, o.value]
+                                      : f.purposes.filter((p) => p !== o.value),
+                                  }));
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 text-[#1A7A6E] focus:ring-[#1A7A6E] accent-[#1A7A6E]"
+                              />
+                              <span className="text-sm text-gray-700">{o.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                        {inquiryTouched && inquiryForm.purposes.length === 0 && (
+                          <p className="mt-0.5 text-xs text-red-600">Select at least one</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">Message (optional)</label>
+                        <textarea
+                          value={inquiryForm.message}
+                          onChange={(e) => setInquiryForm((f) => ({ ...f, message: e.target.value }))}
+                          placeholder="Tell the cooperative about your sourcing requirements, certifications you need, or timeline..."
+                          rows={4}
+                          className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1A7A6E]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-100 pt-4">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                      Section 3 — Compliance Acknowledgement
+                    </p>
+                    <label className="flex cursor-pointer items-start gap-2">
+                      <input
+                        type="checkbox"
+                        checked={inquiryForm.acknowledgement}
+                        onChange={(e) => setInquiryForm((f) => ({ ...f, acknowledgement: e.target.checked }))}
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-[#1A7A6E] accent-[#1A7A6E]"
+                      />
+                      <span className="text-sm text-gray-700">
+                        I confirm I am a legitimate buyer or researcher. I agree that BioTrace may share this inquiry
+                        with the cooperative manager.
+                      </span>
+                    </label>
+                    {inquiryTouched && !inquiryForm.acknowledgement && (
+                      <p className="mt-0.5 text-xs text-red-600">Required to submit</p>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={inquirySubmitting}
+                    className="w-full rounded-lg bg-[#1A7A6E] py-3 text-sm font-semibold text-white hover:bg-[#15635A] disabled:opacity-50 transition-colors"
+                  >
+                    {inquirySubmitting ? 'Submitting...' : 'Submit Inquiry'}
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

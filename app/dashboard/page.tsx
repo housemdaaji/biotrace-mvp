@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   BarChart,
@@ -67,11 +67,43 @@ const SURVEY_COOP_MAP: Record<string, string> = {
   'coop-3': 'kenyacoop-c',
 };
 
+const INQUIRIES_STORAGE_KEY = 'biotrace_buyer_inquiries';
+
+type BuyerInquiry = {
+  id: string;
+  cooperativeId: string;
+  cooperativeName: string;
+  buyerName: string;
+  company: string;
+  country: string;
+  productInterest: string;
+  annualVolume: string;
+  purposes: string[];
+  submittedAt: string;
+  status: 'pending' | 'responded';
+};
+
 export default function DashboardPage() {
   const cooperatives = cooperativesData as Cooperative[];
   const farms = farmsData as Farm[];
   const [selectedCoopId, setSelectedCoopId] = useState<string>(cooperatives[0].id);
   const [surveyCopiedId, setSurveyCopiedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'farms' | 'inquiries'>('farms');
+  const [inquiries, setInquiries] = useState<BuyerInquiry[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(INQUIRIES_STORAGE_KEY) : null;
+      if (!raw) {
+        setInquiries([]);
+        return;
+      }
+      const all = JSON.parse(raw) as BuyerInquiry[];
+      setInquiries(all.filter((i) => i.cooperativeId === selectedCoopId));
+    } catch {
+      setInquiries([]);
+    }
+  }, [selectedCoopId, activeTab]);
 
   const selectedCoop = useMemo(
     () => cooperatives.find((c) => c.id === selectedCoopId) ?? cooperatives[0],
@@ -126,7 +158,7 @@ export default function DashboardPage() {
           </Link>
         </div>
         {/* Cooperative selector */}
-        <div className="mb-6">
+        <div className="mb-4">
           <label htmlFor="coop-select" className="mb-2 block text-sm font-medium text-gray-700">
             Select cooperative
           </label>
@@ -142,6 +174,28 @@ export default function DashboardPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Tab switcher */}
+        <div className="mb-6 flex gap-1 rounded-lg border border-gray-200 bg-gray-100 p-1 max-w-md">
+          <button
+            type="button"
+            onClick={() => setActiveTab('farms')}
+            className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'farms' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            🌾 Farms
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('inquiries')}
+            className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === 'inquiries' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            ✉ Inquiries
+          </button>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -231,6 +285,8 @@ export default function DashboardPage() {
               </div>
             </section>
 
+            {activeTab === 'farms' && (
+            <>
             {/* Farms Table */}
             <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
               <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
@@ -325,6 +381,83 @@ export default function DashboardPage() {
                 </table>
               </div>
             </section>
+            </>
+            )}
+
+            {activeTab === 'inquiries' && (
+              <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Buyer Inquiries</h3>
+                  <p className="text-sm text-gray-600">Inquiries for this cooperative</p>
+                </div>
+                <div className="p-6">
+                  {inquiries.length === 0 ? (
+                    <p className="text-center text-sm text-gray-600">
+                      No buyer inquiries yet. Share your cooperative profile to attract verified buyers.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {inquiries.map((inq) => (
+                        <div
+                          key={inq.id}
+                          className="rounded-lg border border-gray-200 bg-white p-4"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-medium text-gray-900">{inq.buyerName}</span>
+                                <span className="text-sm text-gray-500">·</span>
+                                <span className="text-sm text-gray-600">{inq.company}</span>
+                              </div>
+                              <p className="mt-0.5 text-sm text-gray-500">{inq.country}</p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                Product: {inq.productInterest} · Volume: {inq.annualVolume}
+                              </p>
+                              <p className="mt-1 text-xs text-gray-500">
+                                Purposes: {inq.purposes?.join(', ') || '—'}
+                              </p>
+                              <p className="mt-1 text-xs text-gray-400">
+                                Submitted: {formatDate(inq.submittedAt)}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                  inq.status === 'responded'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-amber-100 text-amber-800'
+                                }`}
+                              >
+                                {inq.status === 'responded' ? 'Responded' : 'Pending Response'}
+                              </span>
+                              {inq.status === 'pending' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    try {
+                                      const raw = localStorage.getItem(INQUIRIES_STORAGE_KEY);
+                                      const all: BuyerInquiry[] = raw ? JSON.parse(raw) : [];
+                                      const updated = all.map((i) =>
+                                        i.id === inq.id ? { ...i, status: 'responded' as const } : i
+                                      );
+                                      localStorage.setItem(INQUIRIES_STORAGE_KEY, JSON.stringify(updated));
+                                      setInquiries(updated.filter((i) => i.cooperativeId === selectedCoopId));
+                                    } catch {}
+                                  }}
+                                  className="rounded-lg border border-[#1A7A6E] bg-white px-3 py-1.5 text-xs font-medium text-[#1A7A6E] hover:bg-[#f0faf9] transition-colors"
+                                >
+                                  Mark Responded
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
           </div>
 
           {/* Right column: Digital Certificate Panel */}
