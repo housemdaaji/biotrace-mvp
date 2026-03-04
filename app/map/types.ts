@@ -19,6 +19,7 @@ export interface Farm {
   certificateDate: string | null;
   status: 'certified' | 'pending' | 'at-risk';
   boundary: GeoJSONPolygon;
+  deforestationRisk: boolean;
 }
 
 export interface Cooperative {

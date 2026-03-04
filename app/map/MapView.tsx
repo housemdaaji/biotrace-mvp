@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { MapContainer, TileLayer, GeoJSON, Rectangle } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, Rectangle, Marker } from 'react-leaflet';
+import { divIcon } from 'leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
 import type { Farm, Cooperative } from './types';
 
@@ -45,6 +46,13 @@ function formatDate(dateStr: string | null): string {
   }
 }
 
+const deforestationFlagIcon = divIcon({
+  className: 'deforestation-flag',
+  html: `<div style="width:28px;height:28px;border-radius:50%;background:#dc2626;color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3);">🌲⚠️</div>`,
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+});
+
 export interface NdviCell {
   id: string;
   lat: number;
@@ -62,6 +70,7 @@ interface MapViewProps {
 export default function MapView({ farms, cooperatives, ndviGrid }: MapViewProps) {
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
   const [ndviLayerVisible, setNdviLayerVisible] = useState(true);
+  const [legendCollapsed, setLegendCollapsed] = useState(false);
 
   const coopById = useMemo(() => {
     const m = new Map<string, Cooperative>();
@@ -77,22 +86,34 @@ export default function MapView({ farms, cooperatives, ndviGrid }: MapViewProps)
 
   const farmsWithBoundary = useMemo(() => farms.filter((f) => f.boundary), [farms]);
 
-  const parcelsFeatureCollection = useMemo(() => ({
-    type: 'FeatureCollection' as const,
-    features: farmsWithBoundary.map((farm) => ({
-      type: 'Feature' as const,
-      geometry: farm.boundary,
-      properties: { id: farm.id, apsScore: farm.apsScore },
-    })),
-  }), [farmsWithBoundary]);
+  const parcelsFeatureCollection = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: farmsWithBoundary.map((farm) => ({
+        type: 'Feature' as const,
+        geometry: farm.boundary,
+        properties: {
+          id: farm.id,
+          apsScore: farm.apsScore,
+          deforestationRisk: farm.deforestationRisk,
+        },
+      })),
+    }),
+    [farmsWithBoundary]
+  );
 
   const parcelStyle = useMemo(
-    () => (feature?: { properties?: { apsScore?: number } }) => ({
-      fillColor: getParcelColor(feature?.properties?.apsScore ?? 0),
-      fillOpacity: 0.5,
-      color: '#fff',
-      weight: 1.5,
-    }),
+    () => (feature?: { properties?: { apsScore?: number; deforestationRisk?: boolean } }) => {
+      const risk = feature?.properties?.deforestationRisk ?? false;
+      const base = {
+        fillColor: getParcelColor(feature?.properties?.apsScore ?? 0),
+        fillOpacity: 0.5,
+        color: risk ? '#dc2626' : '#fff',
+        weight: risk ? 3 : 1.5,
+        ...(risk ? { dashArray: '6 3', className: 'deforestation-risk-parcel' } : {}),
+      };
+      return base;
+    },
     []
   );
 
@@ -106,6 +127,11 @@ export default function MapView({ farms, cooperatives, ndviGrid }: MapViewProps)
       });
     },
     [farmById]
+  );
+
+  const farmsWithDeforestationRisk = useMemo(
+    () => farmsWithBoundary.filter((f) => f.deforestationRisk),
+    [farmsWithBoundary]
   );
 
   const selectedCoop = selectedFarm ? coopById.get(selectedFarm.cooperativeId) : null;
@@ -127,6 +153,18 @@ export default function MapView({ farms, cooperatives, ndviGrid }: MapViewProps)
           style={parcelStyle}
           onEachFeature={handleEachParcelFeature}
         />
+
+        {/* Deforestation risk markers */}
+        {farmsWithDeforestationRisk.map((farm) => (
+          <Marker
+            key={farm.id}
+            position={[farm.lat, farm.lng]}
+            icon={deforestationFlagIcon}
+            eventHandlers={{
+              click: () => setSelectedFarm(farm),
+            }}
+          />
+        ))}
 
         {/* NDVI overlay as rectangles */}
         {ndviLayerVisible &&
@@ -158,23 +196,82 @@ export default function MapView({ farms, cooperatives, ndviGrid }: MapViewProps)
           </button>
         </div>
 
-        {/* Legend */}
-        <div className="absolute bottom-4 left-4 z-[1000] rounded-lg border border-gray-200 bg-white/95 px-4 py-3 shadow-md">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600">APS Score</p>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: '#16a34a' }} />
-              <span className="text-sm text-gray-700">Good (≥70)</span>
+        {/* Full legend panel */}
+        <div
+          className="absolute bottom-6 left-4 z-[1000] max-w-[180px] rounded-lg border border-gray-200 bg-white p-3 shadow-md"
+          style={{ padding: '12px' }}
+        >
+          <button
+            type="button"
+            onClick={() => setLegendCollapsed((c) => !c)}
+            className="flex w-full items-center justify-between text-left text-xs font-bold uppercase tracking-wide text-gray-500"
+          >
+            Legend
+            <span
+              className="inline-block text-gray-400 transition-transform"
+              style={{ transform: legendCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+              aria-hidden
+            >
+              ▼
+            </span>
+          </button>
+          {!legendCollapsed && (
+            <div className="mt-2 space-y-3">
+              {/* Section 1 — APS Score */}
+              <div>
+                <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">APS Score (Farm Parcels)</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#16a34a' }} />
+                    <span className="text-sm text-gray-700">Good (≥70)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#f59e0b' }} />
+                    <span className="text-sm text-gray-700">Moderate (40–69)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
+                    <span className="text-sm text-gray-700">At Risk (&lt;40)</span>
+                  </div>
+                </div>
+              </div>
+              {/* Section 2 — NDVI (only when visible) */}
+              {ndviLayerVisible && (
+                <div>
+                  <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">NDVI Vegetation Health</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#15803d' }} />
+                      <span className="text-sm text-gray-700">High (&gt;0.6)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#86efac' }} />
+                      <span className="text-sm text-gray-700">Moderate (0.4–0.6)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#fde047' }} />
+                      <span className="text-sm text-gray-700">Low (0.2–0.4)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
+                      <span className="text-sm text-gray-700">Very Low (&lt;0.2)</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Section 3 — Indicators */}
+              <div>
+                <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">Indicators</p>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm border-2 border-red-600"
+                    style={{ borderStyle: 'dashed', backgroundColor: 'transparent' }}
+                  />
+                  <span className="text-sm text-gray-700">⚠️ Red dashed border = Deforestation Risk</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: '#f59e0b' }} />
-              <span className="text-sm text-gray-700">Moderate (40–69)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: '#ef4444' }} />
-              <span className="text-sm text-gray-700">At risk (&lt;40)</span>
-            </div>
-          </div>
+          )}
         </div>
       </MapContainer>
 
@@ -193,6 +290,13 @@ export default function MapView({ farms, cooperatives, ndviGrid }: MapViewProps)
               </svg>
             </button>
             <h3 className="pr-8 text-lg font-semibold text-gray-900">Farm details</h3>
+
+            {selectedFarm.deforestationRisk && (
+              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                ⚠️ Deforestation Risk Detected — Canopy loss &gt;20% YoY
+              </div>
+            )}
+
             <dl className="mt-4 flex flex-1 flex-col gap-4">
               <div>
                 <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Farm ID</dt>
