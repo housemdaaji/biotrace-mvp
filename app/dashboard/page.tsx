@@ -17,9 +17,15 @@ import { QRCodeSVG } from 'qrcode.react';
 
 import cooperativesData from '@/data/cooperatives.json';
 import farmsData from '@/data/farms.json';
+import CertificationGuidance from '@/components/CertificationGuidance';
 
 type Cooperative = (typeof cooperativesData)[number];
 type Farm = (typeof farmsData)[number];
+
+/** Convert 0–100 practice score to 0–20 scale for certification tips */
+function toPractice20(score: number): number {
+  return Math.round(score / 5);
+}
 
 function getApsColor(score: number): string {
   if (score >= 70) return '#1A7A6E';
@@ -90,6 +96,7 @@ export default function DashboardPage() {
   const [surveyCopiedId, setSurveyCopiedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'farms' | 'inquiries'>('farms');
   const [inquiries, setInquiries] = useState<BuyerInquiry[]>([]);
+  const [pathFarmId, setPathFarmId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -318,6 +325,9 @@ export default function DashboardPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                         Survey
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                        Path to certification
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
@@ -375,11 +385,42 @@ export default function DashboardPage() {
                             <span className="ml-1 text-xs text-[#1A7A6E]">Copied!</span>
                           )}
                         </td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <button
+                            type="button"
+                            onClick={() => setPathFarmId(pathFarmId === farm.id ? null : farm.id)}
+                            className="rounded border border-[#1A7A6E] bg-white px-2.5 py-1.5 text-xs font-medium text-[#1A7A6E] hover:bg-[#f0faf9] transition-colors"
+                          >
+                            {pathFarmId === farm.id ? 'Hide path' : 'View path'}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              {pathFarmId && (() => {
+                const farm = coopFarms.find((f) => f.id === pathFarmId);
+                if (!farm) return null;
+                return (
+                  <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
+                    <h4 className="text-sm font-semibold text-gray-900">
+                      Path to Certification — {farm.farmerName}
+                    </h4>
+                    <CertificationGuidance
+                      farm={{
+                        name: farm.farmerName,
+                        aps: farm.apsScore,
+                        soilScore: toPractice20(farm.soilScore),
+                        waterScore: toPractice20(farm.waterScore),
+                        biodiversityScore: toPractice20(farm.biodiversityScore),
+                        deforestationScore: toPractice20(farm.deforestationScore),
+                        carbonScore: toPractice20(farm.carbonScore),
+                      }}
+                    />
+                  </div>
+                );
+              })()}
             </section>
             </>
             )}
