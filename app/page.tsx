@@ -39,6 +39,12 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Demo banner */}
+      <div className="border-b border-[#1A7A6E]/20 bg-[#1A7A6E]/10 px-4 py-2 text-center text-sm text-[#1A7A6E]">
+        🛰 Live demo — 3 cooperatives · 10 farms · Meru County, Kenya · Sentinel-2 mock data ·{' '}
+        <span className="font-medium">M4D Open Innovation Challenge 2026</span>
+      </div>
+
       {/* Stats row */}
       <section className="border-b border-gray-200 bg-white px-4 py-12 sm:px-6">
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 sm:grid-cols-3 sm:gap-12">

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import DemoResetButton from '@/app/components/DemoResetButton';
 
 const navLinks = [
   { href: '/map', label: 'Map' },
@@ -21,7 +22,11 @@ export default function Navbar() {
         >
           BioTrace
         </Link>
-        <div className="flex gap-4 sm:gap-6">
+        <div className="flex items-center gap-3 sm:gap-6">
+          <div className="flex items-center gap-3">
+            <span className="hidden text-xs text-gray-400 sm:block">Demo Mode</span>
+            <DemoResetButton />
+          </div>
           {navLinks.map(({ href, label }) => {
             const isActive = pathname === href;
             return (
