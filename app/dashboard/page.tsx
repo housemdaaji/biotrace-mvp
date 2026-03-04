@@ -61,10 +61,17 @@ const PRACTICE_LABELS: { key: keyof Farm; label: string }[] = [
   { key: 'carbonScore', label: 'Carbon Proxy' },
 ];
 
+const SURVEY_COOP_MAP: Record<string, string> = {
+  'coop-1': 'kenyacoop-a',
+  'coop-2': 'kenyacoop-b',
+  'coop-3': 'kenyacoop-c',
+};
+
 export default function DashboardPage() {
   const cooperatives = cooperativesData as Cooperative[];
   const farms = farmsData as Farm[];
   const [selectedCoopId, setSelectedCoopId] = useState<string>(cooperatives[0].id);
+  const [surveyCopiedId, setSurveyCopiedId] = useState<string | null>(null);
 
   const selectedCoop = useMemo(
     () => cooperatives.find((c) => c.id === selectedCoopId) ?? cooperatives[0],
@@ -252,6 +259,9 @@ export default function DashboardPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                         Biodiversity
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                        Survey
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
@@ -284,6 +294,31 @@ export default function DashboardPage() {
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{farm.soilScore}</td>
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{farm.waterScore}</td>
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{farm.biodiversityScore}</td>
+                        <td className="whitespace-nowrap px-6 py-4">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const coop = SURVEY_COOP_MAP[farm.cooperativeId] ?? farm.cooperativeId;
+                              const url =
+                                typeof window !== 'undefined'
+                                  ? window.location.origin + '/survey?coop=' + coop
+                                  : '';
+                              if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                                navigator.clipboard.writeText(url).then(() => {
+                                  setSurveyCopiedId(farm.id);
+                                  setTimeout(() => setSurveyCopiedId(null), 2000);
+                                });
+                              }
+                            }}
+                            className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-[#1A7A6E] transition-colors"
+                            title="Send Survey Link"
+                          >
+                            📋
+                          </button>
+                          {surveyCopiedId === farm.id && (
+                            <span className="ml-1 text-xs text-[#1A7A6E]">Copied!</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

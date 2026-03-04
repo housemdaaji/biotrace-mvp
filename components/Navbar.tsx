@@ -7,6 +7,7 @@ import DemoResetButton from '@/app/components/DemoResetButton';
 const navLinks = [
   { href: '/map', label: 'Map' },
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/survey', label: '📋 Survey' },
   { href: '/buyers', label: 'Buyers' },
 ] as const;
 
