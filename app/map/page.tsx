@@ -47,6 +47,7 @@ export default function MapPage() {
           cooperatives={cooperatives}
           ndviTemporalData={ndviTemporalData}
           isDrawing={drawMode}
+          onDrawMode={(active: boolean) => setDrawMode(active)}
           onBBoxDrawn={setPendingBBox}
           sentinelResult={sentinelResult}
           onFarmSelected={setIsFarmSelected}
