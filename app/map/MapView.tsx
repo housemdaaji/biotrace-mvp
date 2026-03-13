@@ -7,13 +7,13 @@ import type { LatLngBoundsExpression } from 'leaflet';
 import type { Farm, Cooperative } from './types';
 import { computeAGB, computeCarbonProxy, agbRating, carbonRating } from '@/lib/biomass';
 import type { SentinelResult } from '@/components/SentinelPanel';
-import MagoScoreCard, { type MetricItem } from '@/components/MagoScoreCard';
 import {
   MetricIcon,
   CheckIcon,
   AlertIcon,
   XIcon,
   ClipboardIcon,
+  DocumentIcon,
   LeafIcon,
   MapIcon,
   SatelliteIcon,
@@ -97,20 +97,6 @@ function getWaterFootprintStatus(water: number): ComplianceStatus {
   if (water <= 35) return 'green';
   if (water <= 60) return 'yellow';
   return 'red';
-}
-
-function buildMetricsFromFarm(farm: Farm): MetricItem[] {
-  const apsScore = farm.apsScore;
-  const biodiversity = Math.min(100, apsScore + 8);
-  const carbon = Math.max(0, Math.round(100 - apsScore + 12));
-  const water = Math.max(0, Math.round(100 - apsScore + 5));
-  return [
-    { iconKey: 'deforestation', name: 'Deforestation-Free Compliance', score: apsScore, unit: '/100', certified: getDeforestationStatus(apsScore) === 'green' },
-    { iconKey: 'agroecology', name: 'Agroecology Practice Score', score: apsScore, unit: '/100', certified: getApsStatus(apsScore) === 'green' },
-    { iconKey: 'biodiversity', name: 'Biodiversity Score', score: biodiversity, unit: '/100', certified: getBiodiversityStatus(biodiversity) === 'green' },
-    { iconKey: 'carbon', name: 'Carbon Footprint', score: carbon, unit: 'tCO₂/ha', certified: getCarbonFootprintStatus(carbon) === 'green' },
-    { iconKey: 'water', name: 'Water Footprint', score: water, unit: 'm³/ha', certified: getWaterFootprintStatus(water) === 'green' },
-  ];
 }
 
 const deforestationFlagIcon = divIcon({
@@ -442,69 +428,69 @@ export default function MapView({
 
   return (
     <div className="flex flex-row h-full w-full min-h-[300px]" style={{ height: '100%', minHeight: '300px' }}>
-      {/* LEFT SIDEBAR: Farm Details + MagoScoreCard */}
+      {/* LEFT SIDEBAR: Farm Details */}
       <aside className="relative w-80 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col max-h-full overflow-hidden">
-        <div className="flex-1 overflow-y-auto min-h-0 p-5">
+        <div className="w-80 flex flex-col h-full overflow-y-auto bg-white border-r border-gray-200">
           {selectedFarm ? (
             <>
-              <div className="sticky top-0 z-10 -mt-5 pt-5 -mx-5 px-5 pb-2 bg-white flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Farm details</h3>
+              {/* 1. Header */}
+              <div className="px-4 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-0.5">Farm Details</p>
+                  <h2 className="text-base font-bold text-gray-900 leading-tight">
+                    {selectedFarm.farmer ?? selectedFarm.name}
+                  </h2>
+                </div>
                 <button
                   type="button"
                   onClick={() => setSelectedFarm(null)}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded"
                   aria-label="Close"
                 >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <XIcon className="w-4 h-4" />
                 </button>
               </div>
               {selectedFarm.deforestationRisk && (
-                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                <div className="mx-4 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
                   <span className="inline-flex items-center gap-1"><AlertIcon className="w-4 h-4" /> Deforestation Risk Detected — Canopy loss &gt;20% YoY</span>
                 </div>
               )}
-              <dl className="mt-4 flex flex-col gap-4">
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Farm ID</dt>
-                  <dd className="mt-0.5 font-mono text-sm text-gray-900">{selectedFarm.id}</dd>
+              {/* 2. Score badge */}
+              <div className="px-4 py-3 bg-green-50 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 font-medium">Mago APS Score</span>
+                  <span className="text-2xl font-bold text-[#2D5A2E]">
+                    {selectedFarm.apsScore}
+                    <span className="text-sm font-normal text-gray-400">/100</span>
+                  </span>
                 </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Farmer</dt>
-                  <dd className="mt-0.5 text-sm text-gray-900">{selectedFarm.farmer}</dd>
+                <div className="mt-2 h-2 rounded-full bg-gradient-to-r from-red-400 via-yellow-400 to-green-500" />
+              </div>
+              {/* 3. Metadata rows */}
+              <div className="px-4 py-3 space-y-2.5 border-b border-gray-100 text-sm">
+                <div className="flex justify-between items-start gap-2">
+                  <span className="text-gray-400 shrink-0 w-24">Cooperative</span>
+                  <span className="text-gray-800 font-medium text-right">{selectedCoop?.name ?? '—'}</span>
                 </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Cooperative</dt>
-                  <dd className="mt-0.5 text-sm text-gray-900">{selectedCoop?.name ?? '—'}</dd>
+                <div className="flex justify-between items-start gap-2">
+                  <span className="text-gray-400 shrink-0 w-24">Country</span>
+                  <span className="text-gray-800 font-medium text-right">{selectedFarm.country ?? '—'}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Crop</dt>
-                    <dd className="mt-0.5 text-sm text-gray-900">{selectedFarm.crop}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Farm Size</dt>
-                    <dd className="mt-0.5 text-sm text-gray-900">{selectedFarm.farmSize} ha</dd>
-                  </div>
+                <div className="flex justify-between items-start gap-2">
+                  <span className="text-gray-400 shrink-0 w-24">Crop</span>
+                  <span className="text-gray-800 font-medium text-right">{selectedFarm.crop ?? '—'}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Country</dt>
-                    <dd className="mt-0.5 text-sm text-gray-900">{selectedFarm.country}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Practices Since</dt>
-                    <dd className="mt-0.5 text-sm text-gray-900">{selectedFarm.practicesSince}</dd>
-                  </div>
+                <div className="flex justify-between items-start gap-2">
+                  <span className="text-gray-400 shrink-0 w-24">Area</span>
+                  <span className="text-gray-800 font-medium text-right">{selectedFarm.farmSize != null ? `${selectedFarm.farmSize} ha` : '—'}</span>
                 </div>
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Last Updated</dt>
-                  <dd className="mt-0.5 text-sm text-gray-900">{formatDate(selectedFarm.lastUpdated)}</dd>
+                <div className="flex justify-between items-start gap-2">
+                  <span className="text-gray-400 shrink-0 w-24">Status</span>
+                  <span className="text-gray-800 font-medium text-right">{selectedFarm.apsScore >= 50 ? 'Certified' : 'Not Certified'}</span>
                 </div>
-              </dl>
-              {/* Compliance summary, Biomass & Carbon, Certificate — kept in Farm Details */}
-              {selectedFarm && (() => {
+              </div>
+              {/* 4. Metrics (Indicators) */}
+              {(() => {
                 const apsScore = selectedFarm.apsScore;
                 const biodiversity = Math.min(100, apsScore + 8);
                 const carbon = Math.max(0, Math.round(100 - apsScore + 12));
@@ -514,106 +500,46 @@ export default function MapView({
                 const bioStatus = getBiodiversityStatus(biodiversity);
                 const carbonStatus = getCarbonFootprintStatus(carbon);
                 const waterStatus = getWaterFootprintStatus(water);
-                const statuses = [deforestStatus, apsStatus, bioStatus, carbonStatus, waterStatus];
-                const hasRed = statuses.some((s) => s === 'red');
-                const allGreen = statuses.every((s) => s === 'green');
-                const eudrSummary =
-                  allGreen
-                    ? { type: 'compliant' as const, title: 'EUDR Compliant', desc: 'Deforestation-free verified · Ready for EU market', Icon: CheckIcon }
-                    : hasRed
-                      ? { type: 'risk' as const, title: 'EUDR Risk Detected', desc: 'Action required before certification', Icon: AlertIcon }
-                      : { type: 'pending' as const, title: 'EUDR Pending', desc: 'Improvements needed · Re-assess in 90 days', Icon: RefreshIcon };
-                const rows: Array<{ iconKey: MetricIconKey; label: string; value?: string; status: ComplianceStatus }> = [
-                  { iconKey: 'deforestation', label: 'Deforestation-Free Status', status: deforestStatus },
+                const metricRows: Array<{ iconKey: MetricIconKey; label: string; value: string; status: ComplianceStatus }> = [
+                  { iconKey: 'deforestation', label: 'Deforestation-Free Status', value: `${apsScore}/100`, status: deforestStatus },
                   { iconKey: 'agroecology', label: 'Agroecology Practice Score', value: `${apsScore}/100`, status: apsStatus },
                   { iconKey: 'biodiversity', label: 'Biodiversity Score', value: `${biodiversity}/100`, status: bioStatus },
                   { iconKey: 'carbon', label: 'Carbon Footprint', value: `${carbon} tCO₂/ha`, status: carbonStatus },
                   { iconKey: 'water', label: 'Water Footprint', value: `${water} m³/ha`, status: waterStatus },
                 ];
+                const statusLabel = (s: ComplianceStatus) => (s === 'green' ? 'Compliant' : s === 'yellow' ? 'Needs Attention' : 'Non-Compliant');
+                const statusColor = (s: ComplianceStatus) => (s === 'green' ? 'bg-green-100 text-green-700' : s === 'yellow' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600');
                 return (
-                  <>
-                    <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-                      <div className="mb-3 flex items-center gap-2">
-                        <ClipboardIcon className="w-4 h-4 text-[#2D5A2E]" />
-                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Compliance indicators</span>
-                      </div>
-                      <div className={`mb-3 rounded-lg border px-3 py-2 text-center ${eudrSummary.type === 'compliant' ? 'border-green-200 bg-green-50' : eudrSummary.type === 'risk' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
-                        <p className={`text-xs font-bold inline-flex items-center justify-center gap-1 ${eudrSummary.type === 'compliant' ? 'text-green-700' : eudrSummary.type === 'risk' ? 'text-red-700' : 'text-amber-700'}`}>
-                          {(() => { const EudrIcon = eudrSummary.Icon; return <><EudrIcon className="w-3.5 h-3.5" /> {eudrSummary.title}</>; })()}
-                        </p>
-                        <p className={`text-[10px] ${eudrSummary.type === 'compliant' ? 'text-green-600' : eudrSummary.type === 'risk' ? 'text-red-600' : 'text-amber-600'}`}>{eudrSummary.desc}</p>
-                      </div>
-                      <div className="rounded-lg border border-gray-100 bg-white">
-                        {rows.map((row) => (
-                          <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[#2D5A2E]"><MetricIcon iconKey={row.iconKey} className="w-4 h-4" /></span>
-                              <div>
-                                <p className="text-xs font-semibold text-gray-700">{row.label}</p>
-                                {row.value != null && <p className="text-[10px] text-gray-400">{row.value}</p>}
-                              </div>
-                            </div>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${row.status === 'green' ? 'bg-green-100 text-green-700' : row.status === 'yellow' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
-                              {row.status === 'green' ? <><CheckIcon className="w-3 h-3" /> Compliant</> : row.status === 'yellow' ? <><AlertIcon className="w-3 h-3" /> Needs Attention</> : <><XIcon className="w-3 h-3" /> Non-Compliant</>}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <button type="button" onClick={() => typeof window !== 'undefined' && window.open('/eudr', '_blank')} className="mt-3 w-full rounded-lg bg-[#1A7A6E] py-2 text-sm font-medium text-white hover:bg-[#15635A] inline-flex items-center justify-center gap-2"><ClipboardIcon className="w-4 h-4" /> View Full EUDR Report</button>
-                    </div>
-                    <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-                      <div className="mb-3 flex items-center gap-2">
-                        <LeafIcon className="w-4 h-4" />
-                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Biomass & Carbon</span>
-                        <span className="ml-auto rounded-full bg-[#1A7A6E]/10 px-2 py-0.5 text-xs text-[#1A7A6E]">Sentinel-2 proxy</span>
-                      </div>
-                      <div className="mb-2 rounded-lg p-3" style={{ backgroundColor: agbInfo.bg }}>
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-xs text-gray-600">Above-Ground Biomass</span>
-                          <span className="text-lg font-bold" style={{ color: agbInfo.color }}>{agb} <span className="text-xs font-normal">t/ha</span></span>
+                  <div className="px-4 py-2">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Indicators</p>
+                    {metricRows.map((row) => (
+                      <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                        <div className="flex items-center gap-2">
+                          <MetricIcon iconKey={row.iconKey} className="w-4 h-4 shrink-0 text-[#2D5A2E]" />
+                          <span className="text-xs text-gray-600">{row.label}</span>
                         </div>
-                        <div className="mt-1 text-xs font-medium" style={{ color: agbInfo.color }}>{agbInfo.label}</div>
-                        <div className="mt-2 h-1.5 w-full rounded-full bg-white/60">
-                          <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.min(100, (agb / 35) * 100)}%`, backgroundColor: agbInfo.color }} />
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-gray-800">{row.value}</span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${statusColor(row.status)}`}>
+                            {statusLabel(row.status)}
+                          </span>
                         </div>
-                        <div className="mt-0.5 flex justify-between text-xs text-gray-400"><span>0</span><span>35 t/ha max</span></div>
                       </div>
-                      <div className="rounded-lg border border-gray-100 bg-white p-3">
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-xs text-gray-600">Carbon Sequestration Proxy</span>
-                          <span className="text-lg font-bold" style={{ color: carbonInfo.color }}>~{carbon}<span className="text-xs font-normal"> tCO₂e/ha</span></span>
-                        </div>
-                        <div className="mt-1 text-xs font-medium" style={{ color: carbonInfo.color }}>{carbonInfo.label}</div>
-                      </div>
-                      <details className="mt-3">
-                        <summary className="cursor-pointer select-none text-xs text-gray-400 hover:text-gray-600">▸ How is this calculated?</summary>
-                        <div className="mt-2 space-y-1 rounded-lg border border-gray-100 bg-white p-3 text-xs text-gray-500">
-                          <p><span className="font-mono text-[#1A7A6E]">AGB = NDVI × 50</span><span className="ml-1">(proxy model, t/ha)</span></p>
-                          <p><span className="font-mono text-[#1A7A6E]">tCO₂e = AGB × 0.47 × 3.67</span></p>
-                          <p className="italic text-gray-400">IPCC carbon fraction (0.47) × CO₂/C ratio (3.67). Proxy only — not validated for carbon credit issuance. Phase 2 integrates CGIAR-reviewed allometric models.</p>
-                        </div>
-                      </details>
-                    </div>
-                    <div className="mt-4">
-                      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Certificate status</dt>
-                      <dd className="mt-1">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${selectedFarm.status === 'certified' ? 'bg-emerald-100 text-emerald-800' : selectedFarm.status === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>{formatStatus(selectedFarm.status)}</span>
-                      </dd>
-                    </div>
-                    <div className="mt-2">
-                      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Last updated</dt>
-                      <dd className="mt-0.5 text-sm text-gray-900">{formatDate(selectedFarm.certificateDate)}</dd>
-                    </div>
-                  </>
+                    ))}
+                  </div>
                 );
               })()}
-              <div className="border-t border-gray-200 my-4" />
-              <MagoScoreCard
-                farmName={selectedFarm.farmer}
-                overallScore={selectedFarm.apsScore}
-                metrics={buildMetricsFromFarm(selectedFarm)}
-                onGenerateReport={() => typeof window !== 'undefined' && window.open('/eudr', '_blank')}
-              />
+              {/* 5. Generate Report button */}
+              <div className="px-4 pb-4 pt-2 mt-auto">
+                <button
+                  type="button"
+                  onClick={() => typeof window !== 'undefined' && window.open('/eudr', '_blank')}
+                  className="w-full bg-[#2D5A2E] text-white text-sm font-semibold py-3 rounded-lg hover:bg-[#4A8C35] transition-colors flex items-center justify-center gap-2"
+                >
+                  <DocumentIcon className="w-4 h-4" />
+                  Generate Certification Report
+                </button>
+              </div>
             </>
           ) : (
             <div className="flex flex-col items-center justify-center h-full px-6 py-12 text-center">
