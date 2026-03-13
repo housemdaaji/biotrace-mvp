@@ -616,7 +616,34 @@ export default function MapView({
               />
             </>
           ) : (
-            <p className="text-sm text-gray-500 mt-8">Click a parcel to view details</p>
+            <div className="flex flex-col items-center justify-center h-full px-6 py-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#2D5A2E" strokeWidth="1.5" className="w-8 h-8">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                  <circle cx="12" cy="9" r="2.5" />
+                </svg>
+              </div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-1">Select a farm parcel</h3>
+              <p className="text-xs text-gray-400 leading-relaxed mb-6">
+                Click any parcel on the map to view its farm details, APS score, and certification status.
+              </p>
+              <div className="w-full space-y-2">
+                <div className="flex justify-between items-center bg-green-50 rounded-lg px-3 py-2">
+                  <span className="text-xs text-gray-500">Cooperatives</span>
+                  <span className="text-xs font-bold text-[#2D5A2E]">{cooperatives.length}</span>
+                </div>
+                <div className="flex justify-between items-center bg-green-50 rounded-lg px-3 py-2">
+                  <span className="text-xs text-gray-500">Farm parcels</span>
+                  <span className="text-xs font-bold text-[#2D5A2E]">{farms.length}</span>
+                </div>
+                <div className="flex justify-between items-center bg-amber-50 rounded-lg px-3 py-2">
+                  <span className="text-xs text-gray-500">Certified farms</span>
+                  <span className="text-xs font-bold text-[#BC9420]">
+                    {farms.filter((f) => f.apsScore >= 50).length}
+                  </span>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </aside>
