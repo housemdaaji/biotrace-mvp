@@ -1,6 +1,6 @@
 /**
- * BioTrace Biomass & Carbon Proxy Formulas — v1.0
- * Source: BioTrace Satellite Data Specification doc
+ * Mago Biomass & Carbon Proxy Formulas — v1.0
+ * Source: Mago Satellite Data Specification doc
  *
  * AGB (Above-Ground Biomass):
  *   Formula: AGB = NDVI × 50

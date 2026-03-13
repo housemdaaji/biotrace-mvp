@@ -5,21 +5,28 @@ export type GeoJSONPolygon = {
 
 export interface Farm {
   id: string;
+  name?: string;
   cooperativeId: string;
-  farmerName: string;
+  farmer: string;
   lat: number;
   lng: number;
   apsScore: number;
-  soilScore: number;
-  waterScore: number;
-  biodiversityScore: number;
-  deforestationScore: number;
-  carbonScore: number;
-  certificateId: string | null;
-  certificateDate: string | null;
-  status: 'certified' | 'pending' | 'at-risk';
-  boundary: GeoJSONPolygon;
-  deforestationRisk: boolean;
+  crop?: string;
+  country?: string;
+  farmSize?: number;
+  lastUpdated?: string;
+  certified?: boolean;
+  practicesSince?: string;
+  soilScore?: number;
+  waterScore?: number;
+  biodiversityScore?: number;
+  deforestationScore?: number;
+  carbonScore?: number;
+  certificateId?: string | null;
+  certificateDate?: string | null;
+  status?: 'certified' | 'pending' | 'at-risk';
+  boundary?: GeoJSONPolygon;
+  deforestationRisk?: boolean;
   /** Optional: from Sentinel-2 / ndvi_grid; used to compute AGB & carbon proxy */
   ndvi?: number;
   /** Optional: computed from NDVI (AGB = NDVI × 50), not stored */
@@ -31,13 +38,17 @@ export interface Farm {
 export interface Cooperative {
   id: string;
   name: string;
-  location: string;
+  location?: string;
   country: string;
+  region?: string;
   crop: string;
-  farmerCount: number;
-  certifiedFarmers: number;
-  apsScore: number;
-  lat: number;
-  lng: number;
-  lastUpdated: string;
+  farmerCount?: number;
+  memberCount?: number;
+  certifiedFarmers?: number;
+  apsScore?: number;
+  lat?: number;
+  lng?: number;
+  lastUpdated?: string;
+  established?: string;
+  contact?: string;
 }

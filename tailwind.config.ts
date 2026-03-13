@@ -7,7 +7,15 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        'mago-forest': '#2D5A2E',
+        'mago-leaf': '#4A8C35',
+        'mago-sky': '#1A5C8A',
+        'mago-gold': '#BC9420',
+        'mago-bg': '#FCFEFC',
+      },
+    },
   },
   plugins: [],
 };

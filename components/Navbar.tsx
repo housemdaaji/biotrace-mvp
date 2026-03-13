@@ -27,7 +27,7 @@ export default function Navbar() {
           href="/"
           className="text-xl font-bold text-[#1A7A6E] hover:text-[#145c52] transition-colors"
         >
-          BioTrace
+          Mago
         </Link>
         <div className="flex items-center gap-3 sm:gap-6">
           <div className="flex items-center gap-3">

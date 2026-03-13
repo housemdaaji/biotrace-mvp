@@ -1,15 +1,20 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
-import { MapContainer, TileLayer, GeoJSON, Rectangle, Marker } from 'react-leaflet';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, GeoJSON, Rectangle, Marker, Tooltip, CircleMarker, useMap } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
 import type { Farm, Cooperative } from './types';
 import { computeAGB, computeCarbonProxy, agbRating, carbonRating } from '@/lib/biomass';
+import type { SentinelResult } from '@/components/SentinelPanel';
+import MagoScoreCard, { type MetricItem } from '@/components/MagoScoreCard';
+
+import 'leaflet-draw/dist/leaflet.draw.css';
 
 const OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const CENTER: [number, number] = [0.05, 37.65];
-const ZOOM = 11;
+const ESRI_IMAGERY_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const CENTER: [number, number] = [-0.35, 37.45];
+const ZOOM = 9;
 
 function getParcelColor(score: number): string {
   if (score >= 70) return '#16a34a';
@@ -30,14 +35,14 @@ function getScoreColor(score: number): string {
   return '#EF4444';
 }
 
-function formatStatus(status: string): string {
+function formatStatus(status?: string): string {
   if (status === 'certified') return 'Certified';
   if (status === 'pending') return 'Pending';
   if (status === 'at-risk') return 'At-Risk';
-  return status;
+  return status || '—';
 }
 
-function formatDate(dateStr: string | null): string {
+function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '—';
   try {
     const d = new Date(dateStr);
@@ -47,12 +52,94 @@ function formatDate(dateStr: string | null): string {
   }
 }
 
+type ComplianceStatus = 'green' | 'yellow' | 'red';
+
+function getDeforestationStatus(apsScore: number): ComplianceStatus {
+  if (apsScore >= 60) return 'green';
+  if (apsScore >= 40) return 'yellow';
+  return 'red';
+}
+
+function getApsStatus(apsScore: number): ComplianceStatus {
+  if (apsScore >= 70) return 'green';
+  if (apsScore >= 40) return 'yellow';
+  return 'red';
+}
+
+function getBiodiversityStatus(biodiversity: number): ComplianceStatus {
+  if (biodiversity >= 65) return 'green';
+  if (biodiversity >= 40) return 'yellow';
+  return 'red';
+}
+
+function getCarbonFootprintStatus(carbon: number): ComplianceStatus {
+  if (carbon <= 40) return 'green';
+  if (carbon <= 65) return 'yellow';
+  return 'red';
+}
+
+function getWaterFootprintStatus(water: number): ComplianceStatus {
+  if (water <= 35) return 'green';
+  if (water <= 60) return 'yellow';
+  return 'red';
+}
+
+function buildMetricsFromFarm(farm: Farm): MetricItem[] {
+  const apsScore = farm.apsScore;
+  const biodiversity = Math.min(100, apsScore + 8);
+  const carbon = Math.max(0, Math.round(100 - apsScore + 12));
+  const water = Math.max(0, Math.round(100 - apsScore + 5));
+  return [
+    { icon: '🌳', name: 'Deforestation-Free Compliance', score: apsScore, unit: '/100', certified: getDeforestationStatus(apsScore) === 'green' },
+    { icon: '🏅', name: 'Agroecology Practice Score', score: apsScore, unit: '/100', certified: getApsStatus(apsScore) === 'green' },
+    { icon: '🦋', name: 'Biodiversity Score', score: biodiversity, unit: '/100', certified: getBiodiversityStatus(biodiversity) === 'green' },
+    { icon: '💨', name: 'Carbon Footprint', score: carbon, unit: 'tCO₂/ha', certified: getCarbonFootprintStatus(carbon) === 'green' },
+    { icon: '💧', name: 'Water Footprint', score: water, unit: 'm³/ha', certified: getWaterFootprintStatus(water) === 'green' },
+  ];
+}
+
 const deforestationFlagIcon = divIcon({
   className: 'deforestation-flag',
   html: `<div style="width:28px;height:28px;border-radius:50%;background:#dc2626;color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3);">🌲⚠️</div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 14],
 });
+
+function getCooperativeLabelIcon(name: string, crop: string) {
+  let emoji = '🌾';
+  if (crop.toLowerCase().includes('coffee')) emoji = '☕';
+  else if (crop.toLowerCase().includes('tea')) emoji = '🍵';
+  
+  return divIcon({
+    className: '',
+    html: `<div style="background:#0D3D35;color:#0DF5B4;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:bold;white-space:nowrap;border:1px solid #1A7A6E;box-shadow:0 2px 4px rgba(0,0,0,0.2);transform:translate(-50%,-50%);">${emoji} ${name}</div>`,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  });
+}
+
+function getCertifiedFarmIcon() {
+  return divIcon({
+    className: '',
+    html: `<div style="width:22px;height:22px;border-radius:50%;background:#1A7A6E;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;font-weight:bold;box-shadow:0 2px 6px rgba(0,0,0,0.3);">✓</div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+  });
+}
+
+/** GeoJSON Polygon coordinates[0] is exterior ring; each point is [lng, lat]. Returns [lat, lng] for Leaflet. */
+function getParcelCenter(boundary?: Farm['boundary']): [number, number] {
+  if (!boundary) return [0, 0];
+  const ring = boundary.coordinates[0];
+  if (!ring?.length) return [0, 0];
+  let sumLng = 0;
+  let sumLat = 0;
+  for (const p of ring) {
+    sumLng += p[0];
+    sumLat += p[1];
+  }
+  return [sumLat / ring.length, sumLng / ring.length];
+}
 
 export interface NdviCell {
   id: string;
@@ -71,17 +158,121 @@ interface MapViewProps {
   farms: Farm[];
   cooperatives: Cooperative[];
   ndviTemporalData: NdviTemporalData;
+  onDrawMode?: (active: boolean) => void;
+  isDrawing?: boolean;
+  onBBoxDrawn?: (bbox: [number, number, number, number]) => void;
+  sentinelResult?: SentinelResult | null;
+  onFarmSelected?: (hasFarm: boolean) => void;
 }
 
 const MONTH_COUNT = 6;
 const LAST_MONTH_INDEX = MONTH_COUNT - 1;
 
-export default function MapView({ farms, cooperatives, ndviTemporalData }: MapViewProps) {
+function MapDrawAndOverlay({
+  isDrawing,
+  onBBoxDrawn,
+  sentinelResult,
+}: {
+  isDrawing?: boolean;
+  onBBoxDrawn?: (bbox: [number, number, number, number]) => void;
+  sentinelResult?: SentinelResult | null;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const L = require('leaflet');
+    require('leaflet-draw');
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+    const handleDrawCreated = (e: { layer: L.Layer & { getBounds: () => L.LatLngBounds } }) => {
+      drawnItems.clearLayers();
+      drawnItems.addLayer(e.layer);
+      const b = e.layer.getBounds();
+      const bbox: [number, number, number, number] = [
+        b.getWest(),
+        b.getSouth(),
+        b.getEast(),
+        b.getNorth(),
+      ];
+      onBBoxDrawn?.(bbox);
+    };
+    map.on((L as unknown as { Draw: { Event: { CREATED: string } } }).Draw.Event.CREATED, handleDrawCreated);
+    return () => {
+      map.off((L as unknown as { Draw: { Event: { CREATED: string } } }).Draw.Event.CREATED, handleDrawCreated);
+      map.removeLayer(drawnItems);
+      drawnItems.clearLayers();
+    };
+  }, [map, onBBoxDrawn]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !map) return;
+    if (!isDrawing) return;
+    const L = require('leaflet');
+    require('leaflet-draw');
+    const drawHandler = new (L as unknown as { Draw: { Rectangle: new (map: L.Map, options: object) => { enable: () => void; disable: () => void } } }).Draw.Rectangle(
+      map,
+      {
+        shapeOptions: {
+          color: '#1A7A6E',
+          weight: 2,
+          fillOpacity: 0.1,
+        },
+      }
+    );
+    drawHandler.enable();
+    return () => {
+      try {
+        drawHandler.disable();
+      } catch {
+        // ignore
+      }
+    };
+  }, [map, isDrawing]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !map) return;
+    map.eachLayer((layer: L.Layer & { _isSentinelOverlay?: boolean }) => {
+      if (layer._isSentinelOverlay) {
+        map.removeLayer(layer);
+      }
+    });
+    if (sentinelResult) {
+      const L = require('leaflet');
+      const bounds: L.LatLngBoundsExpression = [
+        [sentinelResult.bbox[1], sentinelResult.bbox[0]],
+        [sentinelResult.bbox[3], sentinelResult.bbox[2]],
+      ];
+      const overlay = L.imageOverlay(sentinelResult.image, bounds, {
+        opacity: 0.85,
+      }) as L.ImageOverlay & { _isSentinelOverlay?: boolean };
+      overlay._isSentinelOverlay = true;
+      overlay.addTo(map);
+      map.fitBounds(bounds);
+    }
+  }, [map, sentinelResult]);
+
+  return null;
+}
+
+export default function MapView({
+  farms,
+  cooperatives,
+  ndviTemporalData,
+  isDrawing,
+  onBBoxDrawn,
+  sentinelResult,
+  onFarmSelected,
+}: MapViewProps) {
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
+  const [basemap, setBasemap] = useState<'street' | 'satellite'>('street');
   const [ndviLayerVisible, setNdviLayerVisible] = useState(true);
   const [legendCollapsed, setLegendCollapsed] = useState(false);
   const [monthIndex, setMonthIndex] = useState(LAST_MONTH_INDEX);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [ndviOpacity, setNdviOpacity] = useState(0.35);
+  const [sensorType, setSensorType] = useState<'optical' | 'radar'>('optical');
+  const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const months = ndviTemporalData.months;
   const activeSnapshot = useMemo(
@@ -91,7 +282,7 @@ export default function MapView({ farms, cooperatives, ndviTemporalData }: MapVi
 
   useEffect(() => {
     if (!isPlaying) return;
-    const id = setInterval(() => {
+    playIntervalRef.current = setInterval(() => {
       setMonthIndex((prev) => {
         if (prev >= LAST_MONTH_INDEX) {
           setIsPlaying(false);
@@ -100,7 +291,12 @@ export default function MapView({ farms, cooperatives, ndviTemporalData }: MapVi
         return prev + 1;
       });
     }, 1200);
-    return () => clearInterval(id);
+    return () => {
+      if (playIntervalRef.current) {
+        clearInterval(playIntervalRef.current);
+        playIntervalRef.current = null;
+      }
+    };
   }, [isPlaying]);
 
   const coopById = useMemo(() => {
@@ -165,6 +361,11 @@ export default function MapView({ farms, cooperatives, ndviTemporalData }: MapVi
     [farmsWithBoundary]
   );
 
+  const certifiedFarms = useMemo(
+    () => farmsWithBoundary.filter((f) => f.apsScore >= 70),
+    [farmsWithBoundary]
+  );
+
   const selectedCoop = selectedFarm ? coopById.get(selectedFarm.cooperativeId) : null;
   const ndviForFarm = selectedFarm ? (selectedFarm.ndvi ?? 0.5) : 0;
   const agb = selectedFarm ? computeAGB(ndviForFarm) : 0;
@@ -172,116 +373,315 @@ export default function MapView({ farms, cooperatives, ndviTemporalData }: MapVi
   const agbInfo = agbRating(agb);
   const carbonInfo = carbonRating(carbon);
 
+  const farmMarkers = useMemo(() => {
+    return farms.map((farm) => {
+      const isCertified = farm.apsScore >= 60;
+      return (
+        <CircleMarker
+          key={farm.id}
+          center={[farm.lat, farm.lng]}
+          radius={isCertified ? 10 : 8}
+          pathOptions={{
+            fillColor: farm.apsScore >= 70 ? '#1A7A6E' : farm.apsScore >= 50 ? '#F59E0B' : '#EF4444',
+            fillOpacity: 0.85,
+            color: isCertified ? '#0DF5B4' : '#ffffff',
+            weight: isCertified ? 2.5 : 1.5,
+          }}
+          eventHandlers={{
+            click: () => setSelectedFarm(farm as any),
+          }}
+        >
+          <Tooltip permanent={false} direction="top">
+            {farm.name} — APS {farm.apsScore}
+          </Tooltip>
+        </CircleMarker>
+      );
+    });
+  }, [farms, setSelectedFarm]);
+
+  const coopLabels = useMemo(() => {
+    return cooperatives.map((coop) => {
+      const coopFarms = farms.filter((f) => f.cooperativeId === coop.id);
+      if (coopFarms.length === 0) return null;
+      const sumLat = coopFarms.reduce((s, f) => s + f.lat, 0);
+      const sumLng = coopFarms.reduce((s, f) => s + f.lng, 0);
+      const centroid: [number, number] = [sumLat / coopFarms.length, sumLng / coopFarms.length];
+      return (
+        <Marker
+          key={`coop-${coop.id}`}
+          position={centroid}
+          icon={getCooperativeLabelIcon(coop.name, coop.crop)}
+          interactive={false}
+          zIndexOffset={-100}
+        />
+      );
+    });
+  }, [cooperatives, farms]);
+
+  useEffect(() => {
+    if (onFarmSelected) {
+      onFarmSelected(!!selectedFarm);
+    }
+  }, [selectedFarm, onFarmSelected]);
+
   return (
-    <div className="relative h-full w-full min-h-[300px]" style={{ height: '100%', minHeight: '300px' }}>
+    <div className="flex flex-row h-full w-full min-h-[300px]" style={{ height: '100%', minHeight: '300px' }}>
+      {/* LEFT SIDEBAR: Farm Details + MagoScoreCard */}
+      <aside className="relative w-80 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col max-h-full overflow-hidden">
+        <div className="flex-1 overflow-y-auto min-h-0 p-5">
+          {selectedFarm ? (
+            <>
+              <div className="sticky top-0 z-10 -mt-5 pt-5 -mx-5 px-5 pb-2 bg-white flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Farm details</h3>
+                <button
+                  type="button"
+                  onClick={() => setSelectedFarm(null)}
+                  className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  aria-label="Close"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {selectedFarm.deforestationRisk && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  ⚠️ Deforestation Risk Detected — Canopy loss &gt;20% YoY
+                </div>
+              )}
+              <dl className="mt-4 flex flex-col gap-4">
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Farm ID</dt>
+                  <dd className="mt-0.5 font-mono text-sm text-gray-900">{selectedFarm.id}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Farmer</dt>
+                  <dd className="mt-0.5 text-sm text-gray-900">{selectedFarm.farmer}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Cooperative</dt>
+                  <dd className="mt-0.5 text-sm text-gray-900">{selectedCoop?.name ?? '—'}</dd>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Crop</dt>
+                    <dd className="mt-0.5 text-sm text-gray-900">{selectedFarm.crop}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Farm Size</dt>
+                    <dd className="mt-0.5 text-sm text-gray-900">{selectedFarm.farmSize} ha</dd>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Country</dt>
+                    <dd className="mt-0.5 text-sm text-gray-900">{selectedFarm.country}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Practices Since</dt>
+                    <dd className="mt-0.5 text-sm text-gray-900">{selectedFarm.practicesSince}</dd>
+                  </div>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Last Updated</dt>
+                  <dd className="mt-0.5 text-sm text-gray-900">{formatDate(selectedFarm.lastUpdated)}</dd>
+                </div>
+              </dl>
+              {/* Compliance summary, Biomass & Carbon, Certificate — kept in Farm Details */}
+              {selectedFarm && (() => {
+                const apsScore = selectedFarm.apsScore;
+                const biodiversity = Math.min(100, apsScore + 8);
+                const carbon = Math.max(0, Math.round(100 - apsScore + 12));
+                const water = Math.max(0, Math.round(100 - apsScore + 5));
+                const deforestStatus = getDeforestationStatus(apsScore);
+                const apsStatus = getApsStatus(apsScore);
+                const bioStatus = getBiodiversityStatus(biodiversity);
+                const carbonStatus = getCarbonFootprintStatus(carbon);
+                const waterStatus = getWaterFootprintStatus(water);
+                const statuses = [deforestStatus, apsStatus, bioStatus, carbonStatus, waterStatus];
+                const hasRed = statuses.some((s) => s === 'red');
+                const allGreen = statuses.every((s) => s === 'green');
+                const eudrSummary =
+                  allGreen
+                    ? { type: 'compliant' as const, title: '✅ EUDR Compliant', desc: 'Deforestation-free verified · Ready for EU market' }
+                    : hasRed
+                      ? { type: 'risk' as const, title: '⚠️ EUDR Risk Detected', desc: 'Action required before certification' }
+                      : { type: 'pending' as const, title: '🔄 EUDR Pending', desc: 'Improvements needed · Re-assess in 90 days' };
+                const rows: Array<{ icon: string; label: string; value?: string; status: ComplianceStatus }> = [
+                  { icon: '🌳', label: 'Deforestation-Free Status', status: deforestStatus },
+                  { icon: '🏅', label: 'Agroecology Practice Score', value: `${apsScore}/100`, status: apsStatus },
+                  { icon: '🦋', label: 'Biodiversity Score', value: `${biodiversity}/100`, status: bioStatus },
+                  { icon: '💨', label: 'Carbon Footprint', value: `${carbon} tCO₂/ha`, status: carbonStatus },
+                  { icon: '💧', label: 'Water Footprint', value: `${water} m³/ha`, status: waterStatus },
+                ];
+                return (
+                  <>
+                    <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="text-base" aria-hidden>📋</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Compliance indicators</span>
+                      </div>
+                      <div className={`mb-3 rounded-lg border px-3 py-2 text-center ${eudrSummary.type === 'compliant' ? 'border-green-200 bg-green-50' : eudrSummary.type === 'risk' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
+                        <p className={`text-xs font-bold ${eudrSummary.type === 'compliant' ? 'text-green-700' : eudrSummary.type === 'risk' ? 'text-red-700' : 'text-amber-700'}`}>{eudrSummary.title}</p>
+                        <p className={`text-[10px] ${eudrSummary.type === 'compliant' ? 'text-green-600' : eudrSummary.type === 'risk' ? 'text-red-600' : 'text-amber-600'}`}>{eudrSummary.desc}</p>
+                      </div>
+                      <div className="rounded-lg border border-gray-100 bg-white">
+                        {rows.map((row) => (
+                          <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                            <div className="flex items-center gap-2">
+                              <span>{row.icon}</span>
+                              <div>
+                                <p className="text-xs font-semibold text-gray-700">{row.label}</p>
+                                {row.value != null && <p className="text-[10px] text-gray-400">{row.value}</p>}
+                              </div>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${row.status === 'green' ? 'bg-green-100 text-green-700' : row.status === 'yellow' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
+                              {row.status === 'green' ? '✓ Compliant' : row.status === 'yellow' ? '⚠ Needs Attention' : '✗ Non-Compliant'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <button type="button" onClick={() => typeof window !== 'undefined' && window.open('/eudr', '_blank')} className="mt-3 w-full rounded-lg bg-[#1A7A6E] py-2 text-sm font-medium text-white hover:bg-[#15635A]">📋 View Full EUDR Report</button>
+                    </div>
+                    <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="text-base" aria-hidden>🌱</span>
+                        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Biomass & Carbon</span>
+                        <span className="ml-auto rounded-full bg-[#1A7A6E]/10 px-2 py-0.5 text-xs text-[#1A7A6E]">Sentinel-2 proxy</span>
+                      </div>
+                      <div className="mb-2 rounded-lg p-3" style={{ backgroundColor: agbInfo.bg }}>
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-xs text-gray-600">Above-Ground Biomass</span>
+                          <span className="text-lg font-bold" style={{ color: agbInfo.color }}>{agb} <span className="text-xs font-normal">t/ha</span></span>
+                        </div>
+                        <div className="mt-1 text-xs font-medium" style={{ color: agbInfo.color }}>{agbInfo.label}</div>
+                        <div className="mt-2 h-1.5 w-full rounded-full bg-white/60">
+                          <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.min(100, (agb / 35) * 100)}%`, backgroundColor: agbInfo.color }} />
+                        </div>
+                        <div className="mt-0.5 flex justify-between text-xs text-gray-400"><span>0</span><span>35 t/ha max</span></div>
+                      </div>
+                      <div className="rounded-lg border border-gray-100 bg-white p-3">
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-xs text-gray-600">Carbon Sequestration Proxy</span>
+                          <span className="text-lg font-bold" style={{ color: carbonInfo.color }}>~{carbon}<span className="text-xs font-normal"> tCO₂e/ha</span></span>
+                        </div>
+                        <div className="mt-1 text-xs font-medium" style={{ color: carbonInfo.color }}>{carbonInfo.label}</div>
+                      </div>
+                      <details className="mt-3">
+                        <summary className="cursor-pointer select-none text-xs text-gray-400 hover:text-gray-600">▸ How is this calculated?</summary>
+                        <div className="mt-2 space-y-1 rounded-lg border border-gray-100 bg-white p-3 text-xs text-gray-500">
+                          <p><span className="font-mono text-[#1A7A6E]">AGB = NDVI × 50</span><span className="ml-1">(proxy model, t/ha)</span></p>
+                          <p><span className="font-mono text-[#1A7A6E]">tCO₂e = AGB × 0.47 × 3.67</span></p>
+                          <p className="italic text-gray-400">IPCC carbon fraction (0.47) × CO₂/C ratio (3.67). Proxy only — not validated for carbon credit issuance. Phase 2 integrates CGIAR-reviewed allometric models.</p>
+                        </div>
+                      </details>
+                    </div>
+                    <div className="mt-4">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Certificate status</dt>
+                      <dd className="mt-1">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${selectedFarm.status === 'certified' ? 'bg-emerald-100 text-emerald-800' : selectedFarm.status === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>{formatStatus(selectedFarm.status)}</span>
+                      </dd>
+                    </div>
+                    <div className="mt-2">
+                      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Last updated</dt>
+                      <dd className="mt-0.5 text-sm text-gray-900">{formatDate(selectedFarm.certificateDate)}</dd>
+                    </div>
+                  </>
+                );
+              })()}
+              <div className="border-t border-gray-200 my-4" />
+              <MagoScoreCard
+                farmName={selectedFarm.farmer}
+                overallScore={selectedFarm.apsScore}
+                metrics={buildMetricsFromFarm(selectedFarm)}
+                onGenerateReport={() => typeof window !== 'undefined' && window.open('/eudr', '_blank')}
+              />
+            </>
+          ) : (
+            <p className="text-sm text-gray-500 mt-8">Click a parcel to view details</p>
+          )}
+        </div>
+      </aside>
+
+      {/* CENTER: Map */}
+      <div className="flex-1 relative min-w-0" style={{ minHeight: '300px' }}>
       <MapContainer
         center={CENTER}
         zoom={ZOOM}
         className="h-full w-full"
         style={{ height: '100%', width: '100%', background: '#f1f5f9' }}
       >
-        <TileLayer url={OSM_URL} attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' />
-
-        {/* Farm parcels as GeoJSON polygons */}
-        <GeoJSON
-          key="parcels"
-          data={parcelsFeatureCollection}
-          style={parcelStyle}
-          onEachFeature={handleEachParcelFeature}
+        <TileLayer
+          key={basemap}
+          url={basemap === 'street' ? OSM_URL : ESRI_IMAGERY_URL}
+          attribution={
+            basemap === 'street'
+              ? '© OpenStreetMap contributors'
+              : '© Esri, Maxar, Earthstar Geographics'
+          }
         />
 
-        {/* Deforestation risk markers */}
-        {farmsWithDeforestationRisk.map((farm) => (
-          <Marker
-            key={farm.id}
-            position={[farm.lat, farm.lng]}
-            icon={deforestationFlagIcon}
-            eventHandlers={{
-              click: () => setSelectedFarm(farm),
-            }}
-          />
-        ))}
-
-        {/* NDVI overlay as rectangles (active month snapshot) */}
-        {ndviLayerVisible &&
-          activeSnapshot.map((cell) => (
-            <Rectangle
-              key={cell.id}
-              bounds={cell.bounds as LatLngBoundsExpression}
-              pathOptions={{
-                fillColor: getNdviColor(cell.ndvi),
-                fillOpacity: 0.35,
-                color: getNdviColor(cell.ndvi),
-                weight: 0.5,
-              }}
-            />
-          ))}
-
-        {/* Layer toggle */}
-        <div className="absolute right-4 top-4 z-[1000] flex flex-col gap-2">
+        {/* Basemap toggle */}
+        <div className="absolute z-[1000] flex gap-1" style={{ top: '10px', left: '10px' }}>
           <button
             type="button"
-            onClick={() => setNdviLayerVisible((v) => !v)}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium shadow-md transition-colors ${
-              ndviLayerVisible
+            onClick={() => setBasemap('street')}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors ${
+              basemap === 'street'
                 ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
-                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
             }`}
           >
-            {ndviLayerVisible ? 'Hide NDVI' : 'Show NDVI'}
+            🗺 Street
+          </button>
+          <button
+            type="button"
+            onClick={() => setBasemap('satellite')}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors ${
+              basemap === 'satellite'
+                ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
+                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            🛰 Satellite
           </button>
         </div>
 
-        {/* Temporal slider — bottom-center */}
-        <div className="absolute bottom-6 left-1/2 z-[1000] w-full max-w-[380px] -translate-x-1/2 px-4 sm:px-0">
-          <div className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-md">
-            <button
-              type="button"
-              onClick={() => setIsPlaying((p) => !p)}
-              className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
-              aria-label={isPlaying ? 'Pause' : 'Play'}
-            >
-              {isPlaying ? (
-                <span className="text-sm" aria-hidden>⏸</span>
-              ) : (
-                <span className="text-sm" aria-hidden>▶</span>
-              )}
-            </button>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-600">🛰 Satellite Timeline</span>
-                <span className="text-sm font-bold text-[#1A7A6E]">{months[monthIndex] ?? ''}</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={LAST_MONTH_INDEX}
-                step={1}
-                value={monthIndex}
-                onChange={(e) => setMonthIndex(Number(e.target.value))}
-                className="mt-2 w-full accent-[#1A7A6E]"
+        {/* Farm parcels as CircleMarkers */}
+        {farmMarkers}
+
+        {/* Cooperative Cluster Labels */}
+        {coopLabels}
+
+        {/* NDVI / Radar overlay as rectangles (active month snapshot) */}
+        {ndviLayerVisible &&
+          activeSnapshot.map((cell) => {
+            const color = sensorType === 'optical' ? getNdviColor(cell.ndvi) : `rgb(${Math.floor(cell.ndvi * 255)}, ${Math.floor(cell.ndvi * 255)}, ${Math.floor(cell.ndvi * 255)})`;
+            return (
+              <Rectangle
+                key={`${monthIndex}-${cell.id}`}
+                bounds={cell.bounds as LatLngBoundsExpression}
+                pathOptions={{
+                  fillColor: color,
+                  fillOpacity: ndviOpacity,
+                  color: color,
+                  weight: 0.5,
+                }}
               />
-              <div className="mt-1.5 flex justify-between text-xs">
-                {months.map((month, i) => (
-                  <button
-                    key={month}
-                    type="button"
-                    onClick={() => setMonthIndex(i)}
-                    className={`shrink-0 truncate px-0.5 ${i === monthIndex ? 'font-medium text-[#1A7A6E]' : 'text-gray-500 hover:text-gray-700'}`}
-                    title={month}
-                  >
-                    {month.split(' ')[0]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+            );
+          })}
+
+        {/* Sentinel-2 draw layer and image overlay */}
+        <MapDrawAndOverlay
+          isDrawing={isDrawing}
+          onBBoxDrawn={onBBoxDrawn}
+          sentinelResult={sentinelResult}
+        />
 
         {/* Full legend panel */}
         <div
-          className="absolute bottom-6 left-4 z-[1000] max-w-[180px] rounded-lg border border-gray-200 bg-white p-3 shadow-md"
-          style={{ padding: '12px' }}
+          className="absolute z-[999] max-w-[180px] rounded-lg border border-gray-200 bg-white p-3 shadow-md"
+          style={{ padding: '12px', bottom: '20px', left: '10px' }}
         >
           <button
             type="button"
@@ -301,42 +701,60 @@ export default function MapView({ farms, cooperatives, ndviTemporalData }: MapVi
             <div className="mt-2 space-y-3">
               {/* Section 1 — APS Score */}
               <div>
+                <p className="mb-0.5 text-[10px] text-gray-400">Farm sustainability score out of 100</p>
                 <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">APS Score (Farm Parcels)</p>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#16a34a' }} />
-                    <span className="text-sm text-gray-700">Good (≥70)</span>
+                    <span className="text-sm text-gray-700">🟢 Good</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#f59e0b' }} />
-                    <span className="text-sm text-gray-700">Moderate (40–69)</span>
+                    <span className="text-sm text-gray-700">🟡 Moderate</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
-                    <span className="text-sm text-gray-700">At Risk (&lt;40)</span>
+                    <span className="text-sm text-gray-700">🔴 At Risk</span>
                   </div>
                 </div>
               </div>
-              {/* Section 2 — NDVI (only when visible) */}
-              {ndviLayerVisible && (
+              {/* Section 2 — NDVI/Radar (only when visible) */}
+              {ndviLayerVisible && sensorType === 'optical' && (
                 <div>
+                  <p className="mb-0.5 text-[10px] text-gray-400">How green and healthy the crops are</p>
                   <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">NDVI Vegetation Health</p>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#15803d' }} />
-                      <span className="text-sm text-gray-700">High (&gt;0.6)</span>
+                      <span className="text-sm text-gray-700">🟢 High</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#86efac' }} />
-                      <span className="text-sm text-gray-700">Moderate (0.4–0.6)</span>
+                      <span className="text-sm text-gray-700">🟡 Moderate</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#fde047' }} />
-                      <span className="text-sm text-gray-700">Low (0.2–0.4)</span>
+                      <span className="text-sm text-gray-700">🟠 Low</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
-                      <span className="text-sm text-gray-700">Very Low (&lt;0.2)</span>
+                      <span className="text-sm text-gray-700">🔴 Very Low</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {ndviLayerVisible && sensorType === 'radar' && (
+                <div>
+                  <p className="mb-0.5 text-[10px] text-gray-400">Synthetic Aperture Radar backscatter</p>
+                  <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">SAR Backscatter (Mock)</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 shrink-0 rounded-sm border border-gray-400" style={{ backgroundColor: 'rgb(200,200,200)' }} />
+                      <span className="text-sm text-gray-700">High Return (Vegetated)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="h-3 w-3 shrink-0 rounded-sm border border-gray-400" style={{ backgroundColor: 'rgb(120,120,120)' }} />
+                      <span className="text-sm text-gray-700">Low Return (Bare/Smooth)</span>
                     </div>
                   </div>
                 </div>
@@ -354,6 +772,7 @@ export default function MapView({ farms, cooperatives, ndviTemporalData }: MapVi
               </div>
               {/* Section 4 — Biomass Scale */}
               <div className="mt-2 border-t border-gray-100 pt-2">
+                <p className="mb-0.5 text-[10px] text-gray-400">Estimated plant matter per hectare</p>
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
                   Biomass (AGB)
                 </p>
@@ -370,154 +789,142 @@ export default function MapView({ farms, cooperatives, ndviTemporalData }: MapVi
                     <span className="text-xs text-gray-600">{label}</span>
                   </div>
                 ))}
-                <p className="mt-1 text-xs italic text-gray-400">Click any parcel to view full details</p>
+              </div>
+              {/* Section 5 — Certification Border */}
+              <div className="mt-2 border-t border-gray-100 pt-2">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">Farm Status</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 shrink-0 rounded-full border-[2.5px] border-[#0DF5B4]" style={{ backgroundColor: 'transparent' }} />
+                    <span className="text-xs text-gray-600">Certified farm</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 shrink-0 rounded-full border-[1.5px] border-white bg-gray-200" />
+                    <span className="text-xs text-gray-600">Not yet certified</span>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs italic text-gray-400">Click any parcel to view full details</p>
               </div>
             </div>
           )}
         </div>
       </MapContainer>
+      </div>
 
-      {/* Sidebar */}
-      {selectedFarm && (
-        <aside className="absolute right-0 top-0 z-[1000] h-full w-80 border-l border-gray-200 bg-white shadow-xl">
-          <div className="flex h-full flex-col p-5">
+      {/* RIGHT PANEL: Sentinel / Layer controls */}
+      <aside className="w-64 flex-shrink-0 border-l border-gray-200 bg-white flex flex-col overflow-y-auto">
+        <div className="p-4 flex flex-col gap-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Layer Controls</p>
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">Analysis Layer</span>
             <button
               type="button"
-              onClick={() => setSelectedFarm(null)}
-              className="absolute right-3 top-3 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              aria-label="Close"
+              onClick={() => setNdviLayerVisible((v) => !v)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                ndviLayerVisible ? 'bg-[#1A7A6E]' : 'bg-gray-300'
+              }`}
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <span
+                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                  ndviLayerVisible ? 'translate-x-4' : 'translate-x-1'
+                }`}
+              />
             </button>
-            <h3 className="pr-8 text-lg font-semibold text-gray-900">Farm details</h3>
-
-            {selectedFarm.deforestationRisk && (
-              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-                ⚠️ Deforestation Risk Detected — Canopy loss &gt;20% YoY
-              </div>
-            )}
-
-            <dl className="mt-4 flex flex-1 flex-col gap-4">
+          </div>
+          {ndviLayerVisible && (
+            <div className="space-y-3">
               <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Farm ID</dt>
-                <dd className="mt-0.5 font-mono text-sm text-gray-900">{selectedFarm.id}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Farmer</dt>
-                <dd className="mt-0.5 text-sm text-gray-900">{selectedFarm.farmerName}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Cooperative</dt>
-                <dd className="mt-0.5 text-sm text-gray-900">{selectedCoop?.name ?? '—'}</dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">APS Score</dt>
-                <dd
-                  className="mt-1 text-3xl font-bold"
-                  style={{ color: getScoreColor(selectedFarm.apsScore) }}
-                >
-                  {selectedFarm.apsScore}
-                </dd>
-              </div>
-
-              {/* ── Biomass & Carbon Section ── */}
-              <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-base" aria-hidden>🌿</span>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    Biomass & Carbon
-                  </span>
-                  <span className="ml-auto rounded-full bg-[#1A7A6E]/10 px-2 py-0.5 text-xs text-[#1A7A6E]">
-                    Sentinel-2 proxy
-                  </span>
+                <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                  <span>Opacity</span>
+                  <span>{Math.round(ndviOpacity * 100)}%</span>
                 </div>
-                <div
-                  className="mb-2 rounded-lg p-3"
-                  style={{ backgroundColor: agbInfo.bg }}
-                >
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-xs text-gray-600">Above-Ground Biomass</span>
-                    <span className="text-lg font-bold" style={{ color: agbInfo.color }}>
-                      {agb} <span className="text-xs font-normal">t/ha</span>
-                    </span>
-                  </div>
-                  <div className="mt-1 text-xs font-medium" style={{ color: agbInfo.color }}>
-                    {agbInfo.label}
-                  </div>
-                  <div className="mt-2 h-1.5 w-full rounded-full bg-white/60">
-                    <div
-                      className="h-1.5 rounded-full transition-all"
-                      style={{
-                        width: `${Math.min(100, (agb / 35) * 100)}%`,
-                        backgroundColor: agbInfo.color,
-                      }}
-                    />
-                  </div>
-                  <div className="mt-0.5 flex justify-between text-xs text-gray-400">
-                    <span>0</span>
-                    <span>35 t/ha max</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={ndviOpacity}
+                  onChange={(e) => setNdviOpacity(parseFloat(e.target.value))}
+                  className="w-full accent-[#1A7A6E]"
+                />
+              </div>
+              <div className="border-t border-gray-100 pt-3">
+                <div className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
+                  <span>Sensor Type</span>
+                  <div className="group relative flex cursor-help items-center justify-center rounded-full bg-gray-100 h-4 w-4 text-[10px] text-gray-500">
+                    ?
+                    <div className="pointer-events-none absolute bottom-full right-0 mb-1 hidden w-48 rounded bg-gray-800 p-2 text-[10px] leading-relaxed text-white shadow-lg group-hover:block">
+                      Radar (Sentinel-1 SAR) penetrates cloud cover, ensuring continuous monitoring regardless of weather.
+                    </div>
                   </div>
                 </div>
-                <div className="rounded-lg border border-gray-100 bg-white p-3">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-xs text-gray-600">Carbon Sequestration Proxy</span>
-                    <span className="text-lg font-bold" style={{ color: carbonInfo.color }}>
-                      ~{carbon}
-                      <span className="text-xs font-normal"> tCO₂e/ha</span>
-                    </span>
-                  </div>
-                  <div className="mt-1 text-xs font-medium" style={{ color: carbonInfo.color }}>
-                    {carbonInfo.label}
-                  </div>
-                </div>
-                <details className="mt-3">
-                  <summary className="cursor-pointer select-none text-xs text-gray-400 hover:text-gray-600">
-                    ▸ How is this calculated?
-                  </summary>
-                  <div className="mt-2 space-y-1 rounded-lg border border-gray-100 bg-white p-3 text-xs text-gray-500">
-                    <p>
-                      <span className="font-mono text-[#1A7A6E]">AGB = NDVI × 50</span>
-                      <span className="ml-1">(proxy model, t/ha)</span>
-                    </p>
-                    <p>
-                      <span className="font-mono text-[#1A7A6E]">tCO₂e = AGB × 0.47 × 3.67</span>
-                    </p>
-                    <p className="italic text-gray-400">
-                      IPCC carbon fraction (0.47) × CO₂/C ratio (3.67). Proxy only — not validated for carbon credit
-                      issuance. Phase 2 integrates CGIAR-reviewed allometric models.
-                    </p>
-                  </div>
-                </details>
-              </div>
-
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Certificate status</dt>
-                <dd className="mt-1">
-                  <span
-                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      selectedFarm.status === 'certified'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : selectedFarm.status === 'pending'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-red-100 text-red-800'
+                <div className="flex overflow-hidden rounded-md border border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => setSensorType('optical')}
+                    className={`flex-1 py-1.5 text-xs transition-colors ${
+                      sensorType === 'optical'
+                        ? 'bg-[#1A7A6E] text-white font-medium'
+                        : 'bg-white text-gray-600 hover:bg-gray-50'
                     }`}
                   >
-                    {formatStatus(selectedFarm.status)}
-                  </span>
-                </dd>
+                    Optical
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSensorType('radar')}
+                    className={`flex-1 py-1.5 text-xs transition-colors ${
+                      sensorType === 'radar'
+                        ? 'bg-[#1A7A6E] text-white font-medium'
+                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Radar (SAR)
+                  </button>
+                </div>
               </div>
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">Last updated</dt>
-                <dd className="mt-0.5 text-sm text-gray-900">
-                  {formatDate(selectedFarm.certificateDate)}
-                </dd>
+            </div>
+          )}
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Satellite Timeline</p>
+            <div className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <button
+                type="button"
+                onClick={() => setIsPlaying((p) => !p)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-100"
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? <span className="text-sm" aria-hidden>⏸</span> : <span className="text-sm" aria-hidden>▶</span>}
+              </button>
+              <div className="min-w-0 flex-1">
+                <span className="text-sm font-bold text-[#1A7A6E] block">{months[monthIndex] ?? ''}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={LAST_MONTH_INDEX}
+                  step={1}
+                  value={monthIndex}
+                  onChange={(e) => setMonthIndex(Number(e.target.value))}
+                  className="mt-2 w-full accent-[#1A7A6E]"
+                />
+                <div className="mt-1.5 flex flex-wrap gap-1 text-xs">
+                  {months.map((month, i) => (
+                    <button
+                      key={month}
+                      type="button"
+                      onClick={() => setMonthIndex(i)}
+                      className={`shrink-0 truncate px-1 ${i === monthIndex ? 'font-medium text-[#1A7A6E]' : 'text-gray-500 hover:text-gray-700'}`}
+                      title={month}
+                    >
+                      {month.split(' ')[0]}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </dl>
+            </div>
           </div>
-        </aside>
-      )}
+        </div>
+      </aside>
     </div>
   );
 }

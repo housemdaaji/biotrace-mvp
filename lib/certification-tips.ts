@@ -32,7 +32,7 @@ const PRACTICE_TIPS: Record<
   },
   deforestationScore: {
     practice: 'Deforestation-Free Status',
-    tip: 'Tree cover is the single most important satellite signal in BioTrace scoring. Even 5 trees/hectare qualifies as agroforestry.',
+    tip: 'Tree cover is the single most important satellite signal in Mago scoring. Even 5 trees/hectare qualifies as agroforestry.',
     action: 'Plant or protect existing trees on farm boundaries. Document with GPS photos.',
     timeframe: 'Canopy detectable in 3–4 months',
   },

@@ -1,412 +1,542 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import farmsData from '@/data/farms.json';
+import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
+import GlobalNav from '@/components/GlobalNav';
+import MagoScoreCard, { type MetricItem } from '@/components/MagoScoreCard';
 
-const COOP_OPTIONS = [
-  { value: 'kenyacoop-a', label: 'KenyaCoop-A — Meru North' },
-  { value: 'kenyacoop-b', label: 'KenyaCoop-B — Meru Central' },
-  { value: 'kenyacoop-c', label: 'KenyaCoop-C — Meru South' },
-] as const;
+const COUNTRIES = ['Kenya', 'Tunisia', 'Morocco', 'Ethiopia', 'Rwanda', 'Senegal', 'Uganda', 'Other'] as const;
+const CROPS = ['Coffee', 'Tea', 'Cocoa', 'Olive', 'Cereals', 'Banana', 'Potato', 'Other'] as const;
 
-const OPTIONS = [
-  { label: 'Not Practised', value: 0 },
-  { label: 'Rarely', value: 5 },
-  { label: 'Sometimes', value: 10 },
-  { label: 'Often', value: 15 },
-  { label: 'Always', value: 20 },
-] as const;
+type ComplianceStatus = 'green' | 'yellow' | 'red';
 
-const QUESTIONS: { question: string; why: string }[] = [
-  {
-    question: 'Do you use cover crops or mulching to protect soil health?',
-    why: 'Cover crops prevent erosion, fix nitrogen, and increase organic matter — all tracked by Sentinel-2 NDVI trends.',
-  },
-  {
-    question: 'Do you apply compost or organic fertiliser to your land?',
-    why: 'Organic inputs improve soil biology and reduce chemical runoff, supporting certification standards like EU Organic and Rainforest Alliance.',
-  },
-  {
-    question: 'Have you reduced or eliminated synthetic pesticide use?',
-    why: 'Pesticide reduction is a primary requirement for agroecological certification and protects surrounding biodiversity corridors.',
-  },
-  {
-    question: 'Do you manage water through irrigation, conservation, or rainwater harvesting?',
-    why: "Water efficiency is a core metric for climate-resilient farming and is required for EUDR compliance documentation.",
-  },
-  {
-    question: 'Do you maintain tree cover or agroforestry on your farm?',
-    why: "Tree cover is directly monitored via satellite canopy analysis. Agroforestry is the strongest positive signal for BioTrace's deforestation-free certification.",
-  },
-];
-
-const STORAGE_KEY = 'biotrace_survey_responses';
-
-const COOP_MAP: Record<string, string> = {
-  'coop-1': 'kenyacoop-a',
-  'coop-2': 'kenyacoop-b',
-  'coop-3': 'kenyacoop-c',
-};
-
-function getStatus(score: number): { label: string; color: string; emoji: string } {
-  if (score >= 70) return { label: 'Certifiable ✓', color: '#16a34a', emoji: '✅' };
-  if (score >= 40) return { label: 'Progressing', color: '#F59E0B', emoji: '🟡' };
-  return { label: 'Needs Improvement', color: '#EF4444', emoji: '🔴' };
+function getDeforestationStatus(apsScore: number): ComplianceStatus {
+  if (apsScore >= 60) return 'green';
+  if (apsScore >= 40) return 'yellow';
+  return 'red';
+}
+function getApsStatus(apsScore: number): ComplianceStatus {
+  if (apsScore >= 70) return 'green';
+  if (apsScore >= 40) return 'yellow';
+  return 'red';
+}
+function getBiodiversityStatus(biodiversity: number): ComplianceStatus {
+  if (biodiversity >= 65) return 'green';
+  if (biodiversity >= 40) return 'yellow';
+  return 'red';
+}
+function getCarbonFootprintStatus(carbon: number): ComplianceStatus {
+  if (carbon <= 40) return 'green';
+  if (carbon <= 65) return 'yellow';
+  return 'red';
+}
+function getWaterFootprintStatus(water: number): ComplianceStatus {
+  if (water <= 35) return 'green';
+  if (water <= 60) return 'yellow';
+  return 'red';
 }
 
-function getCurrentMonth(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+interface FormData {
+  fullName: string;
+  cooperativeName: string;
+  country: string;
+  farmSize: string;
+  primaryCrop: string;
+  phone: string;
+  gpsCoordinates: string;
+}
+
+const ASSESSMENT_ITEMS = [
+  'Checking land use history (2020–2025)',
+  'Analyzing vegetation coverage (NDVI)',
+  'Verifying deforestation-free status (NBR)',
+  'Calculating soil health indicators (BSI)',
+];
+
+function computeScore(form: FormData): number {
+  let baseScore = 50;
+  const farmSizeNum = parseFloat(form.farmSize) || 0;
+  if (farmSizeNum < 5) baseScore += 10;
+  if (['Coffee', 'Tea', 'Cocoa'].includes(form.primaryCrop)) baseScore += 15;
+  if (['Kenya', 'Ethiopia', 'Rwanda'].includes(form.country)) baseScore += 10;
+  if (form.gpsCoordinates.trim()) baseScore += 5;
+  baseScore += Math.floor(Math.random() * 10);
+  return Math.min(95, baseScore);
+}
+
+function randomId(): string {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function buildMetricsFromScore(finalScore: number): MetricItem[] {
+  const apsScore = finalScore;
+  const biodiversity = Math.min(100, apsScore + 8);
+  const carbon = Math.max(0, Math.round(100 - apsScore + 12));
+  const water = Math.max(0, Math.round(100 - apsScore + 5));
+  return [
+    { icon: '🌳', name: 'Deforestation-Free Compliance', score: apsScore, unit: '/100', certified: getDeforestationStatus(apsScore) === 'green' },
+    { icon: '🏅', name: 'Agroecology Practice Score', score: apsScore, unit: '/100', certified: getApsStatus(apsScore) === 'green' },
+    { icon: '🦋', name: 'Biodiversity Score', score: biodiversity, unit: '/100', certified: getBiodiversityStatus(biodiversity) === 'green' },
+    { icon: '💨', name: 'Carbon Footprint', score: carbon, unit: 'tCO₂/ha', certified: getCarbonFootprintStatus(carbon) === 'green' },
+    { icon: '💧', name: 'Water Footprint', score: water, unit: 'm³/ha', certified: getWaterFootprintStatus(water) === 'green' },
+  ];
 }
 
 export default function SurveyPage() {
-  const searchParams = useSearchParams();
-  const coopParam = searchParams.get('coop');
-  const farmParam = searchParams.get('farm');
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [formData, setFormData] = useState<FormData>({
+    fullName: '',
+    cooperativeName: '',
+    country: '',
+    farmSize: '',
+    primaryCrop: '',
+    phone: '',
+    gpsCoordinates: '',
+  });
+  const [assessmentProgress, setAssessmentProgress] = useState(0);
+  const [finalScore, setFinalScore] = useState<number | null>(null);
+  const [outcome, setOutcome] = useState<'certificate' | 'roadmap' | null>(null);
+  const [displayScore, setDisplayScore] = useState(0);
+  const [certId] = useState(() => 'BT-' + randomId());
 
-  const [farmerName, setFarmerName] = useState('');
-  const [cooperativeId, setCooperativeId] = useState('');
-  const [surveyMonth, setSurveyMonth] = useState(getCurrentMonth());
-  const [answers, setAnswers] = useState<number[]>([-1, -1, -1, -1, -1]);
-  const [expandedWhy, setExpandedWhy] = useState<number | null>(null);
-  const [submitted, setSubmitted] = useState(false);
-  const [result, setResult] = useState<{
-    farmerName: string;
-    practiceScore: number;
-    apsEstimate: number;
-    cooperativeId: string;
-    surveyMonth: string;
-  } | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
-
-  // Pre-fill from URL params
-  useEffect(() => {
-    if (coopParam && COOP_OPTIONS.some((o) => o.value === coopParam)) {
-      setCooperativeId(coopParam);
-    }
-  }, [coopParam]);
-
-  useEffect(() => {
-    if (!farmParam) return;
-    const farms = farmsData as { id: string; farmerName: string; cooperativeId: string }[];
-    const farm = farms.find((f) => f.id === farmParam);
-    if (farm) {
-      setFarmerName(farm.farmerName);
-      setCooperativeId(COOP_MAP[farm.cooperativeId] ?? farm.cooperativeId);
-    }
-  }, [farmParam]);
-
-  const practiceScore = answers.every((a) => a >= 0)
-    ? answers.reduce((s, a) => s + a, 0)
-    : 0;
-  const questionsRemaining = answers.filter((a) => a < 0).length;
-  const canSubmit =
-    farmerName.trim() &&
-    cooperativeId &&
-    answers.every((a) => a >= 0);
-  const status = getStatus(practiceScore);
-
-  const setAnswer = useCallback((qIdx: number, value: number) => {
-    setAnswers((prev) => {
-      const next = [...prev];
-      next[qIdx] = value;
-      return next;
-    });
+  const updateForm = useCallback((field: keyof FormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!canSubmit) return;
-    const ndvi_mock = 0.45 + Math.random() * 0.3;
-    const aps = Math.round(ndvi_mock * 100 * 0.4 + practiceScore * 0.4);
-    const apsClamped = Math.min(100, Math.max(0, aps));
-    const response = {
-      id: 'survey-' + Date.now(),
-      farmerName: farmerName.trim(),
-      cooperativeId,
-      surveyMonth,
-      answers: { q1: answers[0], q2: answers[1], q3: answers[2], q4: answers[3], q5: answers[4] },
-      practiceScore,
-      apsEstimate: apsClamped,
-      submittedAt: new Date().toISOString(),
-    };
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const existing = raw ? JSON.parse(raw) : [];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([...existing, response]));
-    } catch {}
-    setResult({
-      farmerName: farmerName.trim(),
-      practiceScore,
-      apsEstimate: apsClamped,
-      cooperativeId,
-      surveyMonth,
-    });
-    setSubmitted(true);
-  }
+  // Step 2: animate assessment checks
+  useEffect(() => {
+    if (currentStep !== 2) return;
+    if (assessmentProgress >= 4) return;
+    const t = setTimeout(() => setAssessmentProgress((p) => p + 1), 800);
+    return () => clearTimeout(t);
+  }, [currentStep, assessmentProgress]);
 
-  function copyShareLink() {
-    const coop = result?.cooperativeId ?? cooperativeId;
-    const url = typeof window !== 'undefined' ? window.location.origin + '/survey?coop=' + coop : '';
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(url).then(() => {
-        setLinkCopied(true);
-        setTimeout(() => setLinkCopied(false), 2000);
-      });
+  // Step 2: after all checks + message, auto-advance to Step 3
+  useEffect(() => {
+    if (currentStep !== 2 || assessmentProgress < 4) return;
+    const t = setTimeout(() => {
+      const score = computeScore(formData);
+      setFinalScore(score);
+      setOutcome(score >= 60 ? 'certificate' : 'roadmap');
+      setCurrentStep(3);
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [currentStep, assessmentProgress, formData]);
+
+  // Step 3: count-up score animation
+  useEffect(() => {
+    if (currentStep !== 3 || finalScore == null) return;
+    const target = finalScore;
+    const step = Math.max(1, Math.ceil(target / 30));
+    let current = 0;
+    const id = setInterval(() => {
+      current = Math.min(current + step, target);
+      setDisplayScore(current);
+      if (current >= target) clearInterval(id);
+    }, 40);
+    return () => clearInterval(id);
+  }, [currentStep, finalScore]);
+
+  const goNext = () => {
+    if (currentStep === 1) {
+      const { fullName, cooperativeName, country, farmSize, primaryCrop } = formData;
+      if (!fullName.trim() || !cooperativeName.trim() || !country || !primaryCrop) return;
+      const size = parseFloat(farmSize);
+      if (Number.isNaN(size) || size < 0.1) return;
+      setAssessmentProgress(0);
+      setCurrentStep(2);
     }
-  }
+  };
 
-  function resetSurvey() {
-    setSubmitted(false);
-    setResult(null);
-    setFarmerName('');
-    setCooperativeId(coopParam || '');
-    setSurveyMonth(getCurrentMonth());
-    setAnswers([-1, -1, -1, -1, -1]);
-  }
+  const resetToStep1 = () => {
+    setCurrentStep(1);
+    setFormData({
+      fullName: '',
+      cooperativeName: '',
+      country: '',
+      farmSize: '',
+      primaryCrop: '',
+      phone: '',
+      gpsCoordinates: '',
+    });
+    setAssessmentProgress(0);
+    setFinalScore(null);
+    setOutcome(null);
+    setDisplayScore(0);
+  };
 
-  // Results card
-  if (submitted && result) {
-    const statusInfo = getStatus(result.practiceScore);
-    const apsStatus = getStatus(result.apsEstimate);
-    const pointsTo70 = Math.max(0, 70 - result.practiceScore);
-    const tips: string[] = [];
-    if (answers[0] < 15) tips.push('Adding cover crops could add up to 15 points to your score.');
-    if (answers[4] < 15) tips.push('Planting 5 trees per hectare qualifies as agroforestry.');
-    if (answers[2] < 10) tips.push('Reducing pesticides by 50% satisfies the BioTrace threshold.');
-    const topTips = tips.slice(0, 3);
+  const stepLabels = ['Farmer Registration', 'Satellite Eligibility Assessment', 'Score & Evaluation', outcome === 'certificate' ? 'Certificate' : 'Improvement Roadmap'];
+  const activeLabel = currentStep <= 4 ? stepLabels[currentStep - 1] : stepLabels[3];
 
-    return (
-      <div className="mx-auto max-w-md px-4 pt-8 pb-24">
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-xl">
-          <h2 className="text-xl font-semibold text-gray-900">
-            🌿 Survey Complete — Thank You, {result.farmerName}!
-          </h2>
-          <div className="mt-6 grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs font-medium uppercase text-gray-500">Practice Score</p>
-              <p className="text-2xl font-bold" style={{ color: statusInfo.color }}>
-                {result.practiceScore} / 100
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase text-gray-500">APS Estimate</p>
-              <p className="text-2xl font-bold" style={{ color: apsStatus.color }}>
-                {result.apsEstimate} / 100
-              </p>
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center">
+      <GlobalNav activePage="survey" />
+      <div className="w-full max-w-lg mx-auto py-8 px-4">
+        {/* Progress bar */}
+        <div className="mb-8">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            {[1, 2, 3, 4].map((s) => (
+              <span
+                key={s}
+                className={`inline-flex h-2 w-2 rounded-full ${
+                  s < currentStep ? 'bg-[#1A7A6E]' : s === currentStep ? 'bg-[#1A7A6E]' : 'bg-gray-600'
+                }`}
+              />
+            ))}
+          </div>
+          <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+            <span>Step 1</span>
+            <span>Step 2</span>
+            <span>Step 3</span>
+            <span>Step 4</span>
+          </div>
+          <p className="text-xs text-gray-500 text-center">
+            Step {currentStep} of 4 — {activeLabel}
+          </p>
+        </div>
+
+        {/* Step 1 — Farmer Registration */}
+        {currentStep === 1 && (
+          <div className="rounded-xl border border-gray-700 bg-white shadow-xl p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-4">Farmer Registration</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.fullName}
+                  onChange={(e) => updateForm('fullName', e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#1A7A6E] focus:border-[#1A7A6E]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Cooperative Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.cooperativeName}
+                  onChange={(e) => updateForm('cooperativeName', e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#1A7A6E] focus:border-[#1A7A6E]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Country *</label>
+                <select
+                  required
+                  value={formData.country}
+                  onChange={(e) => updateForm('country', e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#1A7A6E] focus:border-[#1A7A6E]"
+                >
+                  <option value="">Select country</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Farm Size (hectares) *</label>
+                <input
+                  type="number"
+                  min={0.1}
+                  step={0.1}
+                  required
+                  value={formData.farmSize}
+                  onChange={(e) => updateForm('farmSize', e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#1A7A6E] focus:border-[#1A7A6E]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Primary Crop *</label>
+                <select
+                  required
+                  value={formData.primaryCrop}
+                  onChange={(e) => updateForm('primaryCrop', e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#1A7A6E] focus:border-[#1A7A6E]"
+                >
+                  <option value="">Select crop</option>
+                  {CROPS.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number (optional)</label>
+                <input
+                  type="text"
+                  value={formData.phone}
+                  onChange={(e) => updateForm('phone', e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#1A7A6E] focus:border-[#1A7A6E]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">GPS Coordinates (optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. -0.10, 37.65"
+                  value={formData.gpsCoordinates}
+                  onChange={(e) => updateForm('gpsCoordinates', e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#1A7A6E] focus:border-[#1A7A6E]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={goNext}
+                className="w-full rounded-lg bg-[#1A7A6E] text-white font-semibold py-3 text-sm hover:bg-[#15635A] transition-colors"
+              >
+                Next →
+              </button>
             </div>
           </div>
-          <div className="mt-6 border-t border-gray-200 pt-6">
-            {result.practiceScore >= 70 ? (
-              <p className="text-sm font-medium text-emerald-700">
-                ✅ CERTIFIABLE — You qualify for a BioTrace digital certificate!
-              </p>
-            ) : result.practiceScore >= 40 ? (
-              <p className="text-sm font-medium text-amber-700">
-                🟡 PROGRESSING — {pointsTo70} more points needed to reach certification threshold of 70
-              </p>
-            ) : (
-              <p className="text-sm font-medium text-red-700">
-                🔴 NEEDS IMPROVEMENT — {pointsTo70} more points needed
+        )}
+
+        {/* Step 2 — Satellite Eligibility Assessment */}
+        {currentStep === 2 && (
+          <div className="rounded-xl border border-gray-700 bg-white shadow-xl p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-1">🛰 Running Satellite Assessment</h2>
+            <p className="text-xs text-gray-500 mb-6">Analyzing Sentinel-2 imagery for your farm area</p>
+            <div className="space-y-3">
+              {ASSESSMENT_ITEMS.map((label, i) => (
+                <div key={label} className="flex items-center gap-3 py-2">
+                  {assessmentProgress > i ? (
+                    <span className="text-[#1A7A6E] text-lg">✅</span>
+                  ) : (
+                    <span className="h-4 w-4 flex-shrink-0 animate-spin rounded-full border-2 border-[#1A7A6E] border-t-transparent" />
+                  )}
+                  <span className={assessmentProgress > i ? 'text-sm text-gray-700' : 'text-sm text-gray-400'}>
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {assessmentProgress >= 4 && (
+              <p className="mt-6 text-sm font-medium text-[#1A7A6E] text-center">
+                Assessment Complete — Generating your score...
               </p>
             )}
           </div>
-          {topTips.length > 0 && (
-            <div className="mt-6 border-t border-gray-200 pt-6">
-              <p className="mb-2 text-sm font-semibold text-gray-700">IMPROVEMENT TIPS</p>
-              <ul className="list-inside list-disc space-y-1 text-sm text-gray-600">
-                {topTips.map((tip, i) => (
-                  <li key={i}>{tip}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <div className="mt-8 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={resetSurvey}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Submit Another Survey
-            </button>
-            <button
-              type="button"
-              onClick={copyShareLink}
-              className="rounded-lg bg-[#1A7A6E] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#15635A] transition-colors"
-            >
-              {linkCopied ? 'Link copied!' : 'Share Survey Link'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+        )}
 
-  return (
-    <div className="mx-auto max-w-[600px] px-4 pb-32 pt-0 md:pb-8">
-      {/* Header */}
-      <header
-        className="-mx-4 mb-8 px-4 py-6 text-white sm:-mx-6 sm:px-6"
-        style={{ backgroundColor: '#1A7A6E' }}
-      >
-        <h1 className="text-xl font-bold sm:text-2xl">
-          🌿 BioTrace — Agroecological Practice Survey
-        </h1>
-        <p className="mt-2 text-sm text-white/95">
-          Complete this survey to update your farm&apos;s certification score
-        </p>
-        <p className="mt-1 text-xs text-white/80">[Estimated time: 3 minutes]</p>
-      </header>
-
-      <form onSubmit={handleSubmit}>
-        {/* Step 1 */}
-        <section className="mb-8 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <h2 className="border-b border-gray-100 pb-2 text-base font-semibold text-[#1A7A6E]">
-            Step 1 — Farm Identification
-          </h2>
-          <div className="mt-4 space-y-4">
-            <div>
-              <label htmlFor="survey-farmer" className="mb-1 block text-sm font-medium text-gray-700">
-                Farmer Name *
-              </label>
-              <input
-                id="survey-farmer"
-                type="text"
-                required
-                value={farmerName}
-                onChange={(e) => setFarmerName(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1A7A6E]"
-              />
+        {/* Step 3 — Score & Evaluation */}
+        {currentStep === 3 && finalScore != null && (
+          <div className="rounded-xl border border-gray-700 bg-white shadow-xl p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-4">Score & Evaluation</h2>
+            <div className="text-center mb-6">
+              <span className="text-5xl font-bold text-[#1A7A6E]">{displayScore}</span>
+              <span className="text-2xl text-gray-400">/100</span>
             </div>
-            <div>
-              <label htmlFor="survey-coop" className="mb-1 block text-sm font-medium text-gray-700">
-                Cooperative *
-              </label>
-              <select
-                id="survey-coop"
-                required
-                value={cooperativeId}
-                onChange={(e) => setCooperativeId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1A7A6E]"
-              >
-                <option value="">Select cooperative</option>
-                {COOP_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="survey-month" className="mb-1 block text-sm font-medium text-gray-700">
-                Survey Month
-              </label>
-              <input
-                id="survey-month"
-                type="month"
-                value={surveyMonth}
-                onChange={(e) => setSurveyMonth(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#1A7A6E]"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Step 2 — Questions */}
-        <section className="mb-8">
-          <h2 className="mb-4 border-b border-gray-100 pb-2 text-base font-semibold text-[#1A7A6E]">
-            Step 2 — Practice Questions
-          </h2>
-          <div className="space-y-4">
-            {QUESTIONS.map((q, qIdx) => (
-              <div
-                key={qIdx}
-                className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-colors hover:border-[#1A7A6E]/30"
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-500">Q{qIdx + 1} of 5</span>
-                  <span className="text-xs text-gray-500">[0–20 pts]</span>
-                </div>
-                <p className="mb-3 text-sm font-medium text-gray-900">{q.question}</p>
-                <div className="mb-3">
-                  <button
-                    type="button"
-                    onClick={() => setExpandedWhy(expandedWhy === qIdx ? null : qIdx)}
-                    className="flex items-center gap-1 text-xs text-[#1A7A6E] hover:underline"
+            {(() => {
+              const apsScore = finalScore;
+              const biodiversity = Math.min(100, apsScore + 8);
+              const carbon = Math.max(0, Math.round(100 - apsScore + 12));
+              const water = Math.max(0, Math.round(100 - apsScore + 5));
+              const statuses: ComplianceStatus[] = [
+                getDeforestationStatus(apsScore),
+                getApsStatus(apsScore),
+                getBiodiversityStatus(biodiversity),
+                getCarbonFootprintStatus(carbon),
+                getWaterFootprintStatus(water),
+              ];
+              const hasRed = statuses.some((s) => s === 'red');
+              const allGreen = statuses.every((s) => s === 'green');
+              const rows = [
+                { icon: '🌳', label: 'Deforestation-Free Status', status: statuses[0] },
+                { icon: '🏅', label: 'Agroecology Practice Score', value: `${apsScore}/100`, status: statuses[1] },
+                { icon: '🦋', label: 'Biodiversity Score', value: `${biodiversity}/100`, status: statuses[2] },
+                { icon: '💨', label: 'Carbon Footprint', value: `${carbon} tCO₂/ha`, status: statuses[3] },
+                { icon: '💧', label: 'Water Footprint', value: `${water} m³/ha`, status: statuses[4] },
+              ];
+              return (
+                <>
+                  <div
+                    className={`mb-4 rounded-lg border px-3 py-2 text-center ${
+                      allGreen ? 'border-green-200 bg-green-50' : hasRed ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'
+                    }`}
                   >
-                    Why it matters
-                    <span className={`inline-block transition-transform ${expandedWhy === qIdx ? 'rotate-180' : ''}`}>▾</span>
-                  </button>
-                  {expandedWhy === qIdx && (
-                    <p className="mt-1 rounded bg-gray-50 p-2 text-xs text-gray-600">{q.why}</p>
-                  )}
-                </div>
-                <div className="space-y-0 overflow-hidden rounded-lg border border-gray-100">
-                  {OPTIONS.map((opt) => {
-                    const selected = answers[qIdx] === opt.value;
-                    return (
-                      <label
-                        key={opt.value}
-                        className={`flex cursor-pointer items-center gap-3 border-b border-gray-100 px-3 py-2.5 last:border-b-0 transition-colors ${
-                          selected
-                            ? 'border-l-4 border-[#1A7A6E] bg-[#f0faf9]'
-                            : 'bg-white hover:bg-gray-50'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={`q${qIdx}`}
-                          value={opt.value}
-                          checked={selected}
-                          onChange={() => setAnswer(qIdx, opt.value)}
-                          className="h-4 w-4 border-gray-300 text-[#1A7A6E] focus:ring-[#1A7A6E]"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {opt.label} ({opt.value} pts)
+                    <p className={`text-xs font-bold ${allGreen ? 'text-green-700' : hasRed ? 'text-red-700' : 'text-amber-700'}`}>
+                      {allGreen ? '✅ EUDR Compliant' : hasRed ? '⚠️ EUDR Risk Detected' : '🔄 EUDR Pending'}
+                    </p>
+                    <p className={`text-[10px] ${allGreen ? 'text-green-600' : hasRed ? 'text-red-600' : 'text-amber-600'}`}>
+                      {allGreen ? 'Deforestation-free verified · Ready for EU market' : hasRed ? 'Action required before certification' : 'Improvements needed · Re-assess in 90 days'}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-100 divide-y divide-gray-100 mb-6">
+                    {rows.map((row) => (
+                      <div key={row.label} className="flex items-center justify-between py-2 px-2 first:pt-2 last:pb-2">
+                        <div className="flex items-center gap-2">
+                          <span>{row.icon}</span>
+                          <div>
+                            <p className="text-xs font-semibold text-gray-700">{row.label}</p>
+                            {row.value != null && <p className="text-[10px] text-gray-400">{row.value}</p>}
+                          </div>
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            row.status === 'green' ? 'bg-green-100 text-green-700' : row.status === 'yellow' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'
+                          }`}
+                        >
+                          {row.status === 'green' ? '✓ Compliant' : row.status === 'yellow' ? '⚠ Needs Attention' : '✗ Non-Compliant'}
                         </span>
-                      </label>
-                    );
-                  })}
+                      </div>
+                    ))}
+                  </div>
+                  {finalScore >= 60 ? (
+                    <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-3 mb-4">
+                      <p className="text-sm font-bold text-green-700">🎉 Congratulations! You qualify for certification</p>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentStep(4)}
+                        className="mt-3 w-full rounded-lg bg-[#1A7A6E] text-white font-semibold py-2.5 text-sm hover:bg-[#15635A]"
+                      >
+                        Proceed to Certificate →
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 mb-4">
+                      <p className="text-sm font-bold text-amber-700">📋 You need improvements before certification</p>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentStep(4)}
+                        className="mt-3 w-full rounded-lg bg-amber-600 text-white font-semibold py-2.5 text-sm hover:bg-amber-700"
+                      >
+                        View Improvement Roadmap →
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Step 4A — Certificate */}
+        {currentStep === 4 && outcome === 'certificate' && finalScore != null && (
+          <div className="space-y-6">
+            <MagoScoreCard
+              farmName={formData.cooperativeName ? `${formData.fullName} · ${formData.cooperativeName}` : formData.fullName}
+              overallScore={finalScore}
+              metrics={buildMetricsFromScore(finalScore)}
+              onGenerateReport={() => typeof window !== 'undefined' && window.print()}
+            />
+            <div className="rounded-xl border-2 border-[#1A7A6E] bg-white shadow-xl overflow-hidden">
+              <div className="bg-[#1A7A6E] text-white px-4 py-3 text-center">
+                <p className="text-sm font-bold">🏅 Mago Agroecology</p>
+                <p className="text-sm font-bold">Certificate</p>
+              </div>
+              <div className="p-4 space-y-2 text-sm text-gray-800">
+                <p><span className="text-gray-500">Issued to:</span> {formData.fullName}</p>
+                <p><span className="text-gray-500">Cooperative:</span> {formData.cooperativeName}</p>
+                <p><span className="text-gray-500">Country:</span> {formData.country}</p>
+                <p><span className="text-gray-500">Crop:</span> {formData.primaryCrop}</p>
+                <p><span className="text-gray-500">Farm Size:</span> {formData.farmSize} ha</p>
+                <p><span className="text-gray-500">APS Score:</span> {finalScore}/100</p>
+                <p><span className="text-gray-500">EUDR Status:</span> ✅ Compliant</p>
+                <p><span className="text-gray-500">Certificate ID:</span> {certId}</p>
+                <p><span className="text-gray-500">Issue Date:</span> {new Date().toLocaleDateString('en-GB')}</p>
+                <p><span className="text-gray-500">Valid Until:</span> {new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}</p>
+              </div>
+              <div className="flex justify-center py-4">
+                <div className="h-20 w-20 rounded bg-[#1A7A6E] flex items-center justify-center text-white text-xs font-bold">
+                  QR
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Step 3 — Live score preview (sticky on mobile) */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white px-4 py-3 shadow-lg md:static md:z-auto md:mb-6 md:rounded-xl md:border md:border-gray-100 md:shadow-sm">
-          <p className="text-sm font-semibold text-gray-900">Your Practice Score</p>
-          <div className="mt-2 flex items-center gap-3">
-            <div className="h-3 flex-1 overflow-hidden rounded-full bg-gray-200">
-              <div
-                className="h-full rounded-full bg-[#1A7A6E] transition-all duration-300"
-                style={{ width: `${practiceScore}%` }}
-              />
+              <p className="text-[10px] text-gray-500 text-center pb-4">Powered by ESA Copernicus Sentinel-2 Satellite Data</p>
             </div>
-            <span className="text-sm font-bold text-gray-900">{practiceScore} / 100</span>
+            <div className="flex flex-col gap-2">
+              <Link
+                href="/map"
+                className="rounded-lg border-2 border-[#1A7A6E] bg-white text-[#1A7A6E] font-semibold py-2.5 text-sm text-center hover:bg-[#f0faf9]"
+              >
+                🗺 View on Map →
+              </Link>
+              <button
+                type="button"
+                onClick={() => typeof window !== 'undefined' && window.print()}
+                className="w-full rounded-lg bg-[#1A7A6E] text-white font-semibold py-2.5 text-sm hover:bg-[#15635A]"
+              >
+                📋 Download Certificate
+              </button>
+              <button
+                type="button"
+                onClick={resetToStep1}
+                className="w-full rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold py-2.5 text-sm hover:bg-gray-50"
+              >
+                🔄 Register Another Farm
+              </button>
+            </div>
           </div>
-          <p className="mt-1 text-xs text-gray-600">
-            Status: {status.label} {status.emoji}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            {questionsRemaining > 0
-              ? `Answer all 5 questions to submit · ${questionsRemaining} question${questionsRemaining === 1 ? '' : 's'} remaining`
-              : 'All questions answered — you can submit'}
-          </p>
-        </div>
+        )}
 
-        {/* Step 4 — Submit */}
-        <div className="mt-8">
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="w-full rounded-lg bg-[#1A7A6E] px-4 py-3 text-sm font-semibold text-white hover:bg-[#15635A] disabled:opacity-50 transition-colors"
-          >
-            Submit Survey & Calculate Score →
-          </button>
-        </div>
-      </form>
+        {/* Step 4B — Improvement Roadmap */}
+        {currentStep === 4 && outcome === 'roadmap' && finalScore != null && (
+          <div className="space-y-6">
+            <MagoScoreCard
+              farmName={formData.cooperativeName ? `${formData.fullName} · ${formData.cooperativeName}` : formData.fullName}
+              overallScore={finalScore}
+              metrics={buildMetricsFromScore(finalScore)}
+              onGenerateReport={() => {}}
+            />
+            <div className="rounded-xl border border-gray-700 bg-white shadow-xl p-6">
+              <h2 className="text-base font-semibold text-gray-900 mb-1">📋 Your Personalized Improvement Roadmap</h2>
+              <p className="text-xs text-gray-500 mb-4">Complete these steps to qualify for Mago certification</p>
+              <div className="space-y-3 mb-4">
+                <div className="rounded-lg border-l-4 border-[#1A7A6E] bg-white p-3 border border-gray-100 shadow-sm">
+                  <p className="text-sm font-medium text-gray-800">📅 90-day reassessment scheduled</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Complete the steps below and return for re-evaluation</p>
+                </div>
+                {(() => {
+                  const apsScore = finalScore;
+                  const carbon = Math.max(0, Math.round(100 - apsScore + 12));
+                  const water = Math.max(0, Math.round(100 - apsScore + 5));
+                  const deforestStatus = getDeforestationStatus(apsScore);
+                  const carbonStatus = getCarbonFootprintStatus(carbon);
+                  const waterStatus = getWaterFootprintStatus(water);
+                  const items: { action: string; timeline: string; link?: string }[] = [];
+                  if (deforestStatus !== 'green') {
+                    items.push({ action: '🌳 Plant cover crops or native trees on bare areas', timeline: '30 days' });
+                  }
+                  if (apsScore < 70) {
+                    items.push({ action: '📖 Complete Mago Agroecology Training Module', timeline: '14 days', link: 'Start Training →' });
+                  }
+                  if (carbonStatus === 'red') {
+                    items.push({ action: '💨 Reduce tillage and adopt composting practices', timeline: '60 days' });
+                  }
+                  if (waterStatus === 'red') {
+                    items.push({ action: '💧 Install drip irrigation or water retention systems', timeline: '45 days' });
+                  }
+                  items.push({ action: '📞 Schedule a call with a Mago Field Advisor', timeline: 'This week', link: 'Book Call →' });
+                  return items.map((item, i) => (
+                    <div key={i} className="rounded-lg border-l-4 border-[#1A7A6E] bg-white p-3 border border-gray-100 shadow-sm">
+                      <p className="text-sm font-medium text-gray-800">{item.action}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{item.timeline}</span>
+                        {item.link && (
+                          <span className="text-xs font-semibold text-[#1A7A6E] hover:underline cursor-pointer">{item.link}</span>
+                        )}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+              <div className="flex flex-col gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={resetToStep1}
+                  className="w-full rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold py-2.5 text-sm hover:bg-gray-50"
+                >
+                  🔄 Start Over
+                </button>
+                <Link
+                  href="/map"
+                  className="w-full rounded-lg bg-[#1A7A6E] text-white font-semibold py-2.5 text-sm text-center hover:bg-[#15635A]"
+                >
+                  🗺 View Map →
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

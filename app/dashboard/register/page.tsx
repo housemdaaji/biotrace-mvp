@@ -161,11 +161,9 @@ export default function RegisterFarmPage() {
     const color = getApsColor(successFarm.apsScore);
     return (
       <main className="min-h-screen bg-gray-50">
-        <header className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+        <div className="mx-auto max-w-lg px-4 py-12">
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Farm Registration</h1>
           <p className="mt-2 text-sm text-gray-600">Cooperative manager flow</p>
-        </header>
-        <div className="mx-auto max-w-lg px-4 py-12">
           <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-lg">
             <h2 className="text-xl font-semibold text-gray-900">✅ Farm Registered Successfully</h2>
             <p className="mt-4 text-gray-700">
@@ -210,12 +208,9 @@ export default function RegisterFarmPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
-      <header className="border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Farm Registration</h1>
-        <p className="mt-2 text-sm text-gray-600">Cooperative manager flow</p>
-      </header>
-
       <div className="mx-auto max-w-[680px] px-4 py-8">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Farm Registration</h1>
+        <p className="mt-2 mb-6 text-sm text-gray-600">Cooperative manager flow</p>
         <form
           onSubmit={handleSubmit}
           className="rounded-xl border border-gray-200 bg-white p-6 shadow-lg sm:p-8"

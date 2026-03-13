@@ -45,7 +45,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#f0faf9] to-white px-4 py-12">
       <div className="mb-8 text-center">
-        <span className="text-3xl font-bold text-[#1A7A6E]">🌿 BioTrace</span>
+        <span className="text-3xl font-bold text-[#1A7A6E]">🌱 Mago</span>
         <p className="mt-1 text-sm text-gray-500">Cooperative Manager Portal</p>
       </div>
 

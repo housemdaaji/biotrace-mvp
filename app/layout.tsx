@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "BioTrace",
-  description: "Satellite-verified agroecological certification for smallholder cooperatives",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'https://biotrace-mvp.vercel.app'),
+  title: "Mago — Satellite-Verified Agroecology Certification",
+  description: "Mago connects smallholder cooperatives to ESG buyers through AI-powered satellite scoring, EUDR compliance, and QR-verified digital certificates.",
+  openGraph: {
+    title: "Mago — Satellite-Verified Agroecology Certification",
+    description: "Satellite-verified agroecology certification for smallholder cooperatives.",
+    images: [{ url: '/mago-logo.png', width: 1800, height: 820 }],
+  },
 };
 
 export default function RootLayout({
@@ -14,10 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
-        <Navbar />
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
