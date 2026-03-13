@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Rectangle, Marker, Tooltip, CircleMarker, useMap } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
@@ -257,6 +257,37 @@ function MapDrawAndOverlay({
   return null;
 }
 
+function CollapsibleSection({
+  title,
+  children,
+  defaultOpen = true,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-b border-gray-100 last:border-0">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+      >
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          {title}
+        </span>
+        <ChevronDownIcon
+          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+            open ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+      {open && <div className="px-4 pb-4">{children}</div>}
+    </div>
+  );
+}
+
 export default function MapView({
   farms,
   cooperatives,
@@ -269,12 +300,12 @@ export default function MapView({
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
   const [basemap, setBasemap] = useState<'street' | 'satellite'>('street');
   const [ndviLayerVisible, setNdviLayerVisible] = useState(true);
-  const [legendCollapsed, setLegendCollapsed] = useState(false);
   const [monthIndex, setMonthIndex] = useState(LAST_MONTH_INDEX);
   const [isPlaying, setIsPlaying] = useState(false);
   const [ndviOpacity, setNdviOpacity] = useState(0.35);
   const [sensorType, setSensorType] = useState<'optical' | 'radar'>('optical');
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mapRef = useRef<any>(null);
 
   const months = ndviTemporalData.months;
   const activeSnapshot = useMemo(
@@ -375,6 +406,30 @@ export default function MapView({
   const agbInfo = agbRating(agb);
   const carbonInfo = carbonRating(carbon);
 
+  const handleZoomToCooperative = (coopId: string) => {
+    if (!mapRef.current) return;
+    const coopFarms = farms.filter((f) => f.cooperativeId === coopId);
+    if (!coopFarms.length) return;
+    const lats = coopFarms.map((f) => f.lat);
+    const lngs = coopFarms.map((f) => f.lng);
+    const south = Math.min(...lats);
+    const north = Math.max(...lats);
+    const west = Math.min(...lngs);
+    const east = Math.max(...lngs);
+    mapRef.current.fitBounds(
+      [
+        [south, west],
+        [north, east],
+      ],
+      { padding: [40, 40] }
+    );
+  };
+
+  const certifiedCount = useMemo(
+    () => farms.filter((f) => f.apsScore >= 50).length,
+    [farms]
+  );
+
   const farmMarkers = useMemo(() => {
     return farms.map((farm) => {
       const isCertified = farm.apsScore >= 60;
@@ -428,18 +483,183 @@ export default function MapView({
 
   return (
     <div className="flex flex-row h-full w-full min-h-[300px]" style={{ height: '100%', minHeight: '300px' }}>
-      {/* LEFT SIDEBAR: Farm Details */}
-      <aside className="relative w-80 flex-shrink-0 border-r border-gray-200 bg-white flex flex-col max-h-full overflow-hidden">
-        <div className="w-80 flex flex-col h-full overflow-y-auto bg-white border-r border-gray-200">
-          {selectedFarm ? (
-            <>
-              {/* 1. Header */}
-              <div className="px-4 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between">
+      {/* LEFT PANEL — sidebar with sliding panels */}
+      <aside className="w-72 flex flex-col h-full bg-white border-r border-gray-200 overflow-hidden relative flex-shrink-0">
+        {/* Default panel (no farm selected) */}
+        <div
+          className={`absolute inset-0 transform transition-transform duration-300 ${
+            selectedFarm ? '-translate-x-full' : 'translate-x-0'
+          }`}
+        >
+          <div className="h-full overflow-y-auto flex flex-col">
+            <CollapsibleSection title="Legend">
+              {/* APS Score */}
+              <div className="mb-3">
+                <p className="mb-0.5 text-[10px] text-gray-400">Farm sustainability score out of 100</p>
+                <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">APS Score (Farm Parcels)</p>
+                <div className="space-y-1">
+                  <div>
+                    <span className="w-3 h-3 rounded-full bg-green-600 inline-block mr-2" />
+                    <span className="text-xs text-gray-600">Good</span>
+                  </div>
+                  <div>
+                    <span className="w-3 h-3 rounded-full bg-amber-400 inline-block mr-2" />
+                    <span className="text-xs text-gray-600">Moderate</span>
+                  </div>
+                  <div>
+                    <span className="w-3 h-3 rounded-full bg-red-500 inline-block mr-2" />
+                    <span className="text-xs text-gray-600">At Risk</span>
+                  </div>
+                </div>
+              </div>
+              {/* NDVI Vegetation Health */}
+              <div className="mb-3">
+                <p className="mb-0.5 text-[10px] text-gray-400">How green and healthy the crops are</p>
+                <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">NDVI Vegetation Health</p>
+                <div className="space-y-1">
+                  <div>
+                    <span className="w-3 h-3 rounded-full bg-green-800 inline-block mr-2" />
+                    <span className="text-xs text-gray-600">High</span>
+                  </div>
+                  <div>
+                    <span className="w-3 h-3 rounded-full bg-green-300 inline-block mr-2" />
+                    <span className="text-xs text-gray-600">Moderate</span>
+                  </div>
+                  <div>
+                    <span className="w-3 h-3 rounded-full bg-yellow-300 inline-block mr-2" />
+                    <span className="text-xs text-gray-600">Low</span>
+                  </div>
+                  <div>
+                    <span className="w-3 h-3 rounded-full bg-red-500 inline-block mr-2" />
+                    <span className="text-xs text-gray-600">Very Low</span>
+                  </div>
+                </div>
+              </div>
+              {/* Indicators */}
+              <div className="mb-3">
+                <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">Indicators</p>
                 <div>
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-0.5">Farm Details</p>
+                  <span className="w-6 border-t-2 border-dashed border-red-400 inline-block mr-2 align-middle" />
+                  <span className="text-xs text-gray-600">Red dashed border = Deforestation Risk</span>
+                </div>
+              </div>
+              {/* Biomass (AGB) */}
+              <div className="mb-3">
+                <p className="mb-0.5 text-[10px] text-gray-400">Estimated plant matter per hectare</p>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Biomass (AGB)
+                </p>
+                <div className="space-y-1">
+                  <div>
+                    <span className="w-3 h-3 rounded-full bg-green-600 inline-block mr-2" />
+                    <span className="text-xs text-gray-600">≥25 t/ha — High</span>
+                  </div>
+                  <div>
+                    <span className="w-3 h-3 rounded-full bg-amber-600 inline-block mr-2" />
+                    <span className="text-xs text-gray-600">15–24 t/ha — Moderate</span>
+                  </div>
+                  <div>
+                    <span className="w-3 h-3 rounded-full bg-red-600 inline-block mr-2" />
+                    <span className="text-xs text-gray-600">&lt;15 t/ha — Low</span>
+                  </div>
+                </div>
+              </div>
+              {/* Farm Status */}
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">Farm Status</p>
+                <div className="space-y-1">
+                  <div>
+                    <span className="w-3 h-3 rounded-full border-[2.5px] border-[#0DF5B4] inline-block mr-2" />
+                    <span className="text-xs text-gray-600">Certified farm</span>
+                  </div>
+                  <div>
+                    <span className="w-3 h-3 rounded-full bg-gray-300 inline-block mr-2" />
+                    <span className="text-xs text-gray-600">Not yet certified</span>
+                  </div>
+                </div>
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Overview">
+              <div className="flex flex-wrap gap-2">
+                <div className="flex-1 min-w-[90px] rounded-lg bg-green-50 px-3 py-2">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Cooperatives</p>
+                  <p className="text-sm font-bold text-[#2D5A2E]">{cooperatives.length}</p>
+                </div>
+                <div className="flex-1 min-w-[90px] rounded-lg bg-green-50 px-3 py-2">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Farms</p>
+                  <p className="text-sm font-bold text-[#2D5A2E]">{farms.length}</p>
+                </div>
+                <div className="w-full rounded-lg bg-amber-50 px-3 py-2">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Certified</p>
+                  <p className="text-sm font-bold text-[#BC9420]">{certifiedCount}</p>
+                </div>
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection title="Cooperatives">
+              <div className="space-y-2">
+                {cooperatives.map((coop) => {
+                  const coopFarms = farms.filter((f) => f.cooperativeId === coop.id);
+                  const initial = (coop.crop || '').charAt(0).toUpperCase() || 'C';
+                  return (
+                    <button
+                      key={coop.id}
+                      type="button"
+                      onClick={() => handleZoomToCooperative(coop.id)}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-left hover:border-[#1A7A6E] hover:bg-[#f0faf9] transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0D3D35] text-[11px] font-semibold text-[#0DF5B4]">
+                            {initial}
+                          </span>
+                          <div>
+                            <p className="text-xs font-semibold text-gray-900">{coop.name}</p>
+                            <p className="text-[11px] text-gray-500">
+                              {coop.crop} · {coopFarms.length} farms
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </CollapsibleSection>
+          </div>
+        </div>
+
+        {/* Farm detail panel (when a farm is selected) */}
+        <div
+          className={`absolute inset-0 transform transition-transform duration-300 ${
+            selectedFarm ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          {selectedFarm && (
+            <div className="h-full overflow-y-auto flex flex-col">
+              {/* Back + header */}
+              <div className="px-4 pt-4 pb-1 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setSelectedFarm(null)}
+                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                >
+                  <span aria-hidden>←</span>
+                  <span>Back</span>
+                </button>
+              </div>
+              <div className="px-4 pb-3 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-0.5">
+                    Farm Details
+                  </p>
                   <h2 className="text-base font-bold text-gray-900 leading-tight">
                     {selectedFarm.farmer ?? selectedFarm.name}
                   </h2>
+                  {selectedCoop && (
+                    <p className="text-[11px] text-gray-500 mt-0.5">{selectedCoop.name}</p>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -450,12 +670,8 @@ export default function MapView({
                   <XIcon className="w-4 h-4" />
                 </button>
               </div>
-              {selectedFarm.deforestationRisk && (
-                <div className="mx-4 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-                  <span className="inline-flex items-center gap-1"><AlertIcon className="w-4 h-4" /> Deforestation Risk Detected — Canopy loss &gt;20% YoY</span>
-                </div>
-              )}
-              {/* 2. Score badge */}
+
+              {/* APS badge */}
               <div className="px-4 py-3 bg-green-50 border-b border-gray-100">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 font-medium">Mago APS Score</span>
@@ -466,109 +682,141 @@ export default function MapView({
                 </div>
                 <div className="mt-2 h-2 rounded-full bg-gradient-to-r from-red-400 via-yellow-400 to-green-500" />
               </div>
-              {/* 3. Metadata rows */}
-              <div className="px-4 py-3 space-y-2.5 border-b border-gray-100 text-sm">
-                <div className="flex justify-between items-start gap-2">
-                  <span className="text-gray-400 shrink-0 w-24">Cooperative</span>
-                  <span className="text-gray-800 font-medium text-right">{selectedCoop?.name ?? '—'}</span>
+
+              {/* Deforestation warning */}
+              {selectedFarm.deforestationRisk && (
+                <div className="mx-4 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  <span className="inline-flex items-center gap-1">
+                    <AlertIcon className="w-4 h-4" /> Deforestation Risk Detected — Canopy loss &gt;20% YoY
+                  </span>
                 </div>
-                <div className="flex justify-between items-start gap-2">
-                  <span className="text-gray-400 shrink-0 w-24">Country</span>
-                  <span className="text-gray-800 font-medium text-right">{selectedFarm.country ?? '—'}</span>
+              )}
+
+              {/* Details section */}
+              <CollapsibleSection title="Details">
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="text-gray-400 shrink-0 w-24">Cooperative</span>
+                    <span className="text-gray-800 font-medium text-right">{selectedCoop?.name ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="text-gray-400 shrink-0 w-24">Country</span>
+                    <span className="text-gray-800 font-medium text-right">{selectedFarm.country ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="text-gray-400 shrink-0 w-24">Crop</span>
+                    <span className="text-gray-800 font-medium text-right">{selectedFarm.crop ?? '—'}</span>
+                  </div>
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="text-gray-400 shrink-0 w-24">Area</span>
+                    <span className="text-gray-800 font-medium text-right">
+                      {selectedFarm.farmSize != null ? `${selectedFarm.farmSize} ha` : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="text-gray-400 shrink-0 w-24">Status</span>
+                    <span className="text-gray-800 font-medium text-right">
+                      {selectedFarm.apsScore >= 50 ? 'Certified' : 'Not Certified'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-start gap-2">
-                  <span className="text-gray-400 shrink-0 w-24">Crop</span>
-                  <span className="text-gray-800 font-medium text-right">{selectedFarm.crop ?? '—'}</span>
-                </div>
-                <div className="flex justify-between items-start gap-2">
-                  <span className="text-gray-400 shrink-0 w-24">Area</span>
-                  <span className="text-gray-800 font-medium text-right">{selectedFarm.farmSize != null ? `${selectedFarm.farmSize} ha` : '—'}</span>
-                </div>
-                <div className="flex justify-between items-start gap-2">
-                  <span className="text-gray-400 shrink-0 w-24">Status</span>
-                  <span className="text-gray-800 font-medium text-right">{selectedFarm.apsScore >= 50 ? 'Certified' : 'Not Certified'}</span>
-                </div>
-              </div>
-              {/* 4. Metrics (Indicators) */}
+              </CollapsibleSection>
+
+              {/* Indicators section */}
               {(() => {
                 const apsScore = selectedFarm.apsScore;
                 const biodiversity = Math.min(100, apsScore + 8);
-                const carbon = Math.max(0, Math.round(100 - apsScore + 12));
-                const water = Math.max(0, Math.round(100 - apsScore + 5));
+                const carbonVal = Math.max(0, Math.round(100 - apsScore + 12));
+                const waterVal = Math.max(0, Math.round(100 - apsScore + 5));
                 const deforestStatus = getDeforestationStatus(apsScore);
                 const apsStatus = getApsStatus(apsScore);
                 const bioStatus = getBiodiversityStatus(biodiversity);
-                const carbonStatus = getCarbonFootprintStatus(carbon);
-                const waterStatus = getWaterFootprintStatus(water);
-                const metricRows: Array<{ iconKey: MetricIconKey; label: string; value: string; status: ComplianceStatus }> = [
-                  { iconKey: 'deforestation', label: 'Deforestation-Free Status', value: `${apsScore}/100`, status: deforestStatus },
-                  { iconKey: 'agroecology', label: 'Agroecology Practice Score', value: `${apsScore}/100`, status: apsStatus },
-                  { iconKey: 'biodiversity', label: 'Biodiversity Score', value: `${biodiversity}/100`, status: bioStatus },
-                  { iconKey: 'carbon', label: 'Carbon Footprint', value: `${carbon} tCO₂/ha`, status: carbonStatus },
-                  { iconKey: 'water', label: 'Water Footprint', value: `${water} m³/ha`, status: waterStatus },
-                ];
-                const statusLabel = (s: ComplianceStatus) => (s === 'green' ? 'Compliant' : s === 'yellow' ? 'Needs Attention' : 'Non-Compliant');
-                const statusColor = (s: ComplianceStatus) => (s === 'green' ? 'bg-green-100 text-green-700' : s === 'yellow' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600');
+                const carbonStatus = getCarbonFootprintStatus(carbonVal);
+                const waterStatus = getWaterFootprintStatus(waterVal);
+                const metricRows: Array<{ iconKey: MetricIconKey; label: string; value: string; status: ComplianceStatus }> =
+                  [
+                    { iconKey: 'deforestation', label: 'Deforestation-Free Status', value: `${apsScore}/100`, status: deforestStatus },
+                    { iconKey: 'agroecology', label: 'Agroecology Practice Score', value: `${apsScore}/100`, status: apsStatus },
+                    { iconKey: 'biodiversity', label: 'Biodiversity Score', value: `${biodiversity}/100`, status: bioStatus },
+                    { iconKey: 'carbon', label: 'Carbon Footprint', value: `${carbonVal} tCO₂/ha`, status: carbonStatus },
+                    { iconKey: 'water', label: 'Water Footprint', value: `${waterVal} m³/ha`, status: waterStatus },
+                  ];
+                const statusLabel = (s: ComplianceStatus) =>
+                  s === 'green' ? 'Compliant' : s === 'yellow' ? 'Needs Attention' : 'Non-Compliant';
+                const statusColor = (s: ComplianceStatus) =>
+                  s === 'green'
+                    ? 'bg-green-100 text-green-700'
+                    : s === 'yellow'
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-red-100 text-red-600';
+                const improvementCount = metricRows.filter((m) => m.status !== 'green').length;
+
                 return (
-                  <div className="px-4 py-2">
-                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Indicators</p>
-                    {metricRows.map((row) => (
-                      <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                        <div className="flex items-center gap-2">
-                          <MetricIcon iconKey={row.iconKey} className="w-4 h-4 shrink-0 text-[#2D5A2E]" />
-                          <span className="text-xs text-gray-600">{row.label}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-gray-800">{row.value}</span>
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${statusColor(row.status)}`}>
-                            {statusLabel(row.status)}
+                  <>
+                    <CollapsibleSection title="Indicators">
+                      <div>
+                        {metricRows.map((row) => (
+                          <div
+                            key={row.label}
+                            className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              <MetricIcon
+                                iconKey={row.iconKey}
+                                className="w-4 h-4 shrink-0 text-[#2D5A2E]"
+                              />
+                              <span className="text-xs text-gray-600">{row.label}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-gray-800">{row.value}</span>
+                              <span
+                                className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${statusColor(
+                                  row.status
+                                )}`}
+                              >
+                                {statusLabel(row.status)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleSection>
+
+                    {/* Certification section */}
+                    <CollapsibleSection title="Certification">
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <span className="text-xs font-semibold text-gray-500 mr-2">Status</span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                              selectedFarm.apsScore >= 50
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {selectedFarm.apsScore >= 50 ? 'Certified' : 'Not Yet Certified'}
                           </span>
                         </div>
+                        {selectedFarm.apsScore < 50 && improvementCount > 0 && (
+                          <p className="text-xs text-amber-700">
+                            {improvementCount} criteria need improvement before certification.
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            typeof window !== 'undefined' && window.open('/eudr', '_blank')
+                          }
+                          className="mt-2 w-full bg-[#2D5A2E] text-white text-sm font-semibold py-3 rounded-lg hover:bg-[#4A8C35] transition-colors flex items-center justify-center gap-2"
+                        >
+                          <DocumentIcon className="w-4 h-4" />
+                          Generate Certification Report
+                        </button>
                       </div>
-                    ))}
-                  </div>
+                    </CollapsibleSection>
+                  </>
                 );
               })()}
-              {/* 5. Generate Report button */}
-              <div className="px-4 pb-4 pt-2 mt-auto">
-                <button
-                  type="button"
-                  onClick={() => typeof window !== 'undefined' && window.open('/eudr', '_blank')}
-                  className="w-full bg-[#2D5A2E] text-white text-sm font-semibold py-3 rounded-lg hover:bg-[#4A8C35] transition-colors flex items-center justify-center gap-2"
-                >
-                  <DocumentIcon className="w-4 h-4" />
-                  Generate Certification Report
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full px-6 py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#2D5A2E" strokeWidth="1.5" className="w-8 h-8">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                  <circle cx="12" cy="9" r="2.5" />
-                </svg>
-              </div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">Select a farm parcel</h3>
-              <p className="text-xs text-gray-400 leading-relaxed mb-6">
-                Click any parcel on the map to view its farm details, APS score, and certification status.
-              </p>
-              <div className="w-full space-y-2">
-                <div className="flex justify-between items-center bg-green-50 rounded-lg px-3 py-2">
-                  <span className="text-xs text-gray-500">Cooperatives</span>
-                  <span className="text-xs font-bold text-[#2D5A2E]">{cooperatives.length}</span>
-                </div>
-                <div className="flex justify-between items-center bg-green-50 rounded-lg px-3 py-2">
-                  <span className="text-xs text-gray-500">Farm parcels</span>
-                  <span className="text-xs font-bold text-[#2D5A2E]">{farms.length}</span>
-                </div>
-                <div className="flex justify-between items-center bg-amber-50 rounded-lg px-3 py-2">
-                  <span className="text-xs text-gray-500">Certified farms</span>
-                  <span className="text-xs font-bold text-[#BC9420]">
-                    {farms.filter((f) => f.apsScore >= 50).length}
-                  </span>
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -576,206 +824,85 @@ export default function MapView({
 
       {/* CENTER: Map */}
       <div className="flex-1 relative min-w-0" style={{ minHeight: '300px' }}>
-      <MapContainer
-        center={CENTER}
-        zoom={ZOOM}
-        className="h-full w-full"
-        style={{ height: '100%', width: '100%', background: '#f1f5f9' }}
-      >
-        <TileLayer
-          key={basemap}
-          url={basemap === 'street' ? OSM_URL : ESRI_IMAGERY_URL}
-          attribution={
-            basemap === 'street'
-              ? '© OpenStreetMap contributors'
-              : '© Esri, Maxar, Earthstar Geographics'
-          }
-        />
-
-        {/* Basemap toggle */}
-        <div className="absolute z-[1000] flex gap-1" style={{ top: '10px', left: '10px' }}>
-          <button
-            type="button"
-            onClick={() => setBasemap('street')}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors inline-flex items-center ${
-              basemap === 'street'
-                ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
-                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <MapIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Street
-          </button>
-          <button
-            type="button"
-            onClick={() => setBasemap('satellite')}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors inline-flex items-center ${
-              basemap === 'satellite'
-                ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
-                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <SatelliteIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Satellite
-          </button>
-        </div>
-
-        {/* Farm parcels as CircleMarkers */}
-        {farmMarkers}
-
-        {/* Cooperative Cluster Labels */}
-        {coopLabels}
-
-        {/* NDVI / Radar overlay as rectangles (active month snapshot) */}
-        {ndviLayerVisible &&
-          activeSnapshot.map((cell) => {
-            const color = sensorType === 'optical' ? getNdviColor(cell.ndvi) : `rgb(${Math.floor(cell.ndvi * 255)}, ${Math.floor(cell.ndvi * 255)}, ${Math.floor(cell.ndvi * 255)})`;
-            return (
-              <Rectangle
-                key={`${monthIndex}-${cell.id}`}
-                bounds={cell.bounds as LatLngBoundsExpression}
-                pathOptions={{
-                  fillColor: color,
-                  fillOpacity: ndviOpacity,
-                  color: color,
-                  weight: 0.5,
-                }}
-              />
-            );
-          })}
-
-        {/* Sentinel-2 draw layer and image overlay */}
-        <MapDrawAndOverlay
-          isDrawing={isDrawing}
-          onBBoxDrawn={onBBoxDrawn}
-          sentinelResult={sentinelResult}
-        />
-
-        {/* Full legend panel */}
-        <div
-          className="absolute z-[999] max-w-[180px] rounded-lg border border-gray-200 bg-white p-3 shadow-md"
-          style={{ padding: '12px', bottom: '20px', left: '10px' }}
+        <MapContainer
+          ref={mapRef}
+          center={CENTER}
+          zoom={ZOOM}
+          className="h-full w-full"
+          style={{ height: '100%', width: '100%', background: '#f1f5f9' }}
         >
-          <button
-            type="button"
-            onClick={() => setLegendCollapsed((c) => !c)}
-            className="flex w-full items-center justify-between text-left text-xs font-bold uppercase tracking-wide text-gray-500"
-          >
-            Legend
-            <span className="inline-block text-gray-400 transition-transform" style={{ transform: legendCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>
-              <ChevronDownIcon className="w-4 h-4" />
-            </span>
-          </button>
-          {!legendCollapsed && (
-            <div className="mt-2 space-y-3">
-              {/* Section 1 — APS Score */}
-              <div>
-                <p className="mb-0.5 text-[10px] text-gray-400">Farm sustainability score out of 100</p>
-                <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">APS Score (Farm Parcels)</p>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#16a34a' }} />
-                    <span className="text-sm text-gray-700">Good</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#f59e0b' }} />
-                    <span className="text-sm text-gray-700">Moderate</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
-                    <span className="text-sm text-gray-700">At Risk</span>
-                  </div>
-                </div>
-              </div>
-              {/* Section 2 — NDVI/Radar (only when visible) */}
-              {ndviLayerVisible && sensorType === 'optical' && (
-                <div>
-                  <p className="mb-0.5 text-[10px] text-gray-400">How green and healthy the crops are</p>
-                  <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">NDVI Vegetation Health</p>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#15803d' }} />
-                      <span className="text-sm text-gray-700">High</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#86efac' }} />
-                      <span className="text-sm text-gray-700">Moderate</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#fde047' }} />
-                      <span className="text-sm text-gray-700">Low</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
-                      <span className="text-sm text-gray-700">Very Low</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {ndviLayerVisible && sensorType === 'radar' && (
-                <div>
-                  <p className="mb-0.5 text-[10px] text-gray-400">Synthetic Aperture Radar backscatter</p>
-                  <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">SAR Backscatter (Mock)</p>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 shrink-0 rounded-sm border border-gray-400" style={{ backgroundColor: 'rgb(200,200,200)' }} />
-                      <span className="text-sm text-gray-700">High Return (Vegetated)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="h-3 w-3 shrink-0 rounded-sm border border-gray-400" style={{ backgroundColor: 'rgb(120,120,120)' }} />
-                      <span className="text-sm text-gray-700">Low Return (Bare/Smooth)</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {/* Section 3 — Indicators */}
-              <div>
-                <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">Indicators</p>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-3 w-3 shrink-0 rounded-sm border-2 border-red-600"
-                    style={{ borderStyle: 'dashed', backgroundColor: 'transparent' }}
-                  />
-                  <span className="text-sm text-gray-700 inline-flex items-center gap-1"><AlertIcon className="w-3.5 h-3.5" /> Red dashed border = Deforestation Risk</span>
-                </div>
-              </div>
-              {/* Section 4 — Biomass Scale */}
-              <div className="mt-2 border-t border-gray-100 pt-2">
-                <p className="mb-0.5 text-[10px] text-gray-400">Estimated plant matter per hectare</p>
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  Biomass (AGB)
-                </p>
-                {[
-                  { color: '#16a34a', label: '≥25 t/ha — High' },
-                  { color: '#d97706', label: '15–24 t/ha — Moderate' },
-                  { color: '#dc2626', label: '<15 t/ha — Low' },
-                ].map(({ color, label }) => (
-                  <div key={label} className="mb-1 flex items-center gap-2">
-                    <div
-                      className="h-3 w-3 flex-shrink-0 rounded-sm"
-                      style={{ backgroundColor: color }}
-                    />
-                    <span className="text-xs text-gray-600">{label}</span>
-                  </div>
-                ))}
-              </div>
-              {/* Section 5 — Certification Border */}
-              <div className="mt-2 border-t border-gray-100 pt-2">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400">Farm Status</p>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="h-3 w-3 shrink-0 rounded-full border-[2.5px] border-[#0DF5B4]" style={{ backgroundColor: 'transparent' }} />
-                    <span className="text-xs text-gray-600">Certified farm</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-3 w-3 shrink-0 rounded-full border-[1.5px] border-white bg-gray-200" />
-                    <span className="text-xs text-gray-600">Not yet certified</span>
-                  </div>
-                </div>
-                <p className="mt-2 text-xs italic text-gray-400">Click any parcel to view full details</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </MapContainer>
+          <TileLayer
+            key={basemap}
+            url={basemap === 'street' ? OSM_URL : ESRI_IMAGERY_URL}
+            attribution={
+              basemap === 'street'
+                ? '© OpenStreetMap contributors'
+                : '© Esri, Maxar, Earthstar Geographics'
+            }
+          />
+
+          {/* Basemap toggle */}
+          <div className="absolute z-[1000] flex gap-1" style={{ top: '10px', left: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setBasemap('street')}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors inline-flex items-center ${
+                basemap === 'street'
+                  ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
+                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Street
+            </button>
+            <button
+              type="button"
+              onClick={() => setBasemap('satellite')}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors inline-flex items-center ${
+                basemap === 'satellite'
+                  ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
+                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <SatelliteIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Satellite
+            </button>
+          </div>
+
+          {/* Farm parcels as CircleMarkers */}
+          {farmMarkers}
+
+          {/* Cooperative Cluster Labels */}
+          {coopLabels}
+
+          {/* NDVI / Radar overlay as rectangles (active month snapshot) */}
+          {ndviLayerVisible &&
+            activeSnapshot.map((cell) => {
+              const color =
+                sensorType === 'optical'
+                  ? getNdviColor(cell.ndvi)
+                  : `rgb(${Math.floor(cell.ndvi * 255)}, ${Math.floor(
+                      cell.ndvi * 255
+                    )}, ${Math.floor(cell.ndvi * 255)})`;
+              return (
+                <Rectangle
+                  key={`${monthIndex}-${cell.id}`}
+                  bounds={cell.bounds as LatLngBoundsExpression}
+                  pathOptions={{
+                    fillColor: color,
+                    fillOpacity: ndviOpacity,
+                    color: color,
+                    weight: 0.5,
+                  }}
+                />
+              );
+            })}
+
+          {/* Sentinel-2 draw layer and image overlay */}
+          <MapDrawAndOverlay
+            isDrawing={isDrawing}
+            onBBoxDrawn={onBBoxDrawn}
+            sentinelResult={sentinelResult}
+          />
+        </MapContainer>
       </div>
 
       {/* RIGHT PANEL: Sentinel / Layer controls */}
