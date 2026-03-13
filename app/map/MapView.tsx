@@ -905,10 +905,16 @@ export default function MapView({
         </MapContainer>
       </div>
 
-      {/* RIGHT PANEL: Sentinel / Layer controls */}
+      {/* RIGHT PANEL: Unified Sentinel-2 Analysis panel */}
       <aside className="w-64 flex-shrink-0 border-l border-gray-200 bg-white flex flex-col overflow-y-auto">
         <div className="p-4 flex flex-col gap-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Layer Controls</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <SatelliteIcon className="w-4 h-4 text-[#1A7A6E]" />
+              <span className="text-sm font-semibold text-gray-700">Sentinel-2 Analysis</span>
+            </div>
+          </div>
+          <div className="border-t border-gray-100 pt-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">Analysis Layer</span>
             <button
@@ -924,6 +930,7 @@ export default function MapView({
                 }`}
               />
             </button>
+          </div>
           </div>
           {ndviLayerVisible && (
             <div className="space-y-3">
