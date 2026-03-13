@@ -10,7 +10,7 @@ import cooperativesData from '@/data/cooperatives.json';
 import ndviGridData from '@/data/ndvi_grid.json';
 import type { Farm, Cooperative } from './types';
 import type { NdviTemporalData } from './MapView';
-import SentinelPanel, { type SentinelResult } from '@/components/SentinelPanel';
+import type { SentinelResult } from '@/components/SentinelPanel';
 
 const MapView = dynamic(() => import('./MapView'), { ssr: false });
 
@@ -52,26 +52,6 @@ export default function MapPage() {
           onFarmSelected={setIsFarmSelected}
         />
 
-        <style>{`
-          .leaflet-top.leaflet-left .leaflet-control-zoom {
-            margin-top: 60px;
-            margin-left: 10px;
-          }
-          .sentinel-panel-container > div {
-            right: 280px !important;
-            transition: right 0.3s ease !important;
-          }
-        `}</style>
-        
-        <div className="sentinel-panel-container">
-          <SentinelPanel
-            onResult={setSentinelResult}
-            onDrawMode={setDrawMode}
-            isDrawing={drawMode}
-            pendingBBox={pendingBBox}
-            onBBoxConsumed={() => setPendingBBox(null)}
-          />
-        </div>
       </div>
     </main>
   );

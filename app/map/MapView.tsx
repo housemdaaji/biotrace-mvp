@@ -99,6 +99,15 @@ function getWaterFootprintStatus(water: number): ComplianceStatus {
   return 'red';
 }
 
+const INDICES = [
+  { id: 'NDVI', label: 'Vegetation Health' },
+  { id: 'NDWI', label: 'Water Index' },
+  { id: 'NDMI', label: 'Soil Moisture' },
+  { id: 'BSI', label: 'Bare Soil' },
+  { id: 'EVI', label: 'Enhanced Vegetation' },
+  { id: 'NBR', label: 'Burn/Recovery' },
+];
+
 const deforestationFlagIcon = divIcon({
   className: 'deforestation-flag',
   html: `<div style="width:28px;height:28px;border-radius:50%;background:#dc2626;color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3);">!</div>`,
@@ -293,6 +302,7 @@ export default function MapView({
   cooperatives,
   ndviTemporalData,
   isDrawing,
+  onDrawMode,
   onBBoxDrawn,
   sentinelResult,
   onFarmSelected,
@@ -306,6 +316,10 @@ export default function MapView({
   const [sensorType, setSensorType] = useState<'optical' | 'radar'>('optical');
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<any>(null);
+  const [selectedIndex, setSelectedIndex] = useState('NDVI');
+  const [dateFrom, setDateFrom] = useState('2024-10-01');
+  const [dateTo, setDateTo] = useState('2025-03-01');
+  const [inputMode, setInputMode] = useState<'draw' | 'coords'>('draw');
 
   const months = ndviTemporalData.months;
   const activeSnapshot = useMemo(
@@ -405,6 +419,10 @@ export default function MapView({
   const carbon = selectedFarm ? computeCarbonProxy(agb) : 0;
   const agbInfo = agbRating(agb);
   const carbonInfo = carbonRating(carbon);
+
+  const handleIndexChange = (id: string) => {
+    setSelectedIndex(id);
+  };
 
   const handleZoomToCooperative = (coopId: string) => {
     if (!mapRef.current) return;
@@ -914,78 +932,171 @@ export default function MapView({
               <span className="text-sm font-semibold text-gray-700">Sentinel-2 Analysis</span>
             </div>
           </div>
+
+          {/* Analysis Layer + Sensor Type */}
           <div className="border-t border-gray-100 pt-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">Analysis Layer</span>
-            <button
-              type="button"
-              onClick={() => setNdviLayerVisible((v) => !v)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                ndviLayerVisible ? 'bg-[#1A7A6E]' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                  ndviLayerVisible ? 'translate-x-4' : 'translate-x-1'
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Analysis Layer</span>
+              <button
+                type="button"
+                onClick={() => setNdviLayerVisible((v) => !v)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  ndviLayerVisible ? 'bg-[#1A7A6E]' : 'bg-gray-300'
                 }`}
-              />
-            </button>
-          </div>
-          </div>
-          {ndviLayerVisible && (
-            <div className="space-y-3">
-              <div>
-                <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                  <span>Opacity</span>
-                  <span>{Math.round(ndviOpacity * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={ndviOpacity}
-                  onChange={(e) => setNdviOpacity(parseFloat(e.target.value))}
-                  className="w-full accent-[#1A7A6E]"
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                    ndviLayerVisible ? 'translate-x-4' : 'translate-x-1'
+                  }`}
                 />
-              </div>
-              <div className="border-t border-gray-100 pt-3">
-                <div className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
-                  <span>Sensor Type</span>
-                  <div className="group relative flex cursor-help items-center justify-center rounded-full bg-gray-100 h-4 w-4 text-[10px] text-gray-500">
-                    ?
-                    <div className="pointer-events-none absolute bottom-full right-0 mb-1 hidden w-48 rounded bg-gray-800 p-2 text-[10px] leading-relaxed text-white shadow-lg group-hover:block">
-                      Radar (Sentinel-1 SAR) penetrates cloud cover, ensuring continuous monitoring regardless of weather.
+              </button>
+            </div>
+            {ndviLayerVisible && (
+              <div className="space-y-3 mt-3">
+                <div>
+                  <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                    <span>Opacity</span>
+                    <span>{Math.round(ndviOpacity * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={ndviOpacity}
+                    onChange={(e) => setNdviOpacity(parseFloat(e.target.value))}
+                    className="w-full accent-[#1A7A6E]"
+                  />
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <div className="flex items-center justify-between text-xs font-medium text-gray-700 mb-2">
+                    <span>Sensor Type</span>
+                    <div className="group relative flex cursor-help items-center justify-center rounded-full bg-gray-100 h-4 w-4 text-[10px] text-gray-500">
+                      ?
+                      <div className="pointer-events-none absolute bottom-full right-0 mb-1 hidden w-48 rounded bg-gray-800 p-2 text-[10px] leading-relaxed text-white shadow-lg group-hover:block">
+                        Radar (Sentinel-1 SAR) penetrates cloud cover, ensuring continuous monitoring regardless of weather.
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex overflow-hidden rounded-md border border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => setSensorType('optical')}
-                    className={`flex-1 py-1.5 text-xs transition-colors ${
-                      sensorType === 'optical'
-                        ? 'bg-[#1A7A6E] text-white font-medium'
-                        : 'bg-white text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    Optical
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSensorType('radar')}
-                    className={`flex-1 py-1.5 text-xs transition-colors ${
-                      sensorType === 'radar'
-                        ? 'bg-[#1A7A6E] text-white font-medium'
-                        : 'bg-white text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    Radar (SAR)
-                  </button>
+                  <div className="flex overflow-hidden rounded-md border border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setSensorType('optical')}
+                      className={`flex-1 py-1.5 text-xs transition-colors ${
+                        sensorType === 'optical'
+                          ? 'bg-[#1A7A6E] text-white font-medium'
+                          : 'bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      Optical
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSensorType('radar')}
+                      className={`flex-1 py-1.5 text-xs transition-colors ${
+                        sensorType === 'radar'
+                          ? 'bg-[#1A7A6E] text-white font-medium'
+                          : 'bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      Radar (SAR)
+                    </button>
+                  </div>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Index + date + area selection controls */}
+          <div className="border-t border-gray-100 my-2" />
+
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+              Index
+            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {INDICES.map((idx) => {
+                const active = selectedIndex === idx.id;
+                return (
+                  <button
+                    key={idx.id}
+                    type="button"
+                    onClick={() => handleIndexChange(idx.id)}
+                    className={`rounded-lg border px-2 py-1.5 text-[10px] font-semibold text-left transition-all ${
+                      active
+                        ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
+                        : 'border-gray-200 bg-gray-100 text-gray-600 hover:border-[#1A7A6E]'
+                    }`}
+                  >
+                    <span className="block leading-tight">{idx.label}</span>
+                    <span
+                      className={`mt-0.5 block text-[8px] opacity-60 ${
+                        active ? 'text-white' : 'text-gray-500'
+                      }`}
+                    >
+                      {idx.id}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[10px] text-gray-500">From</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="mt-0.5 w-full rounded border border-gray-200 px-1.5 py-1 text-[10px] outline-none focus:border-[#1A7A6E]"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-gray-500">To</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="mt-0.5 w-full rounded border border-gray-200 px-1.5 py-1 text-[10px] outline-none focus:border-[#1A7A6E]"
+              />
+            </div>
+          </div>
+
+          <div className="flex overflow-hidden rounded-lg border border-gray-200 mt-3">
+            <button
+              type="button"
+              onClick={() => setInputMode('draw')}
+              className={`flex-1 py-1.5 text-[10px] font-semibold transition-colors inline-flex items-center justify-center gap-1 ${
+                inputMode === 'draw'
+                  ? 'bg-[#1A7A6E] text-white'
+                  : 'bg-white text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              Draw on map
+            </button>
+            <button
+              type="button"
+              onClick={() => setInputMode('coords')}
+              className={`flex-1 py-1.5 text-[10px] font-semibold transition-colors inline-flex items-center justify-center gap-1 ${
+                inputMode === 'coords'
+                  ? 'bg-[#1A7A6E] text-white'
+                  : 'bg-white text-gray-500 hover:bg-gray-50'
+              }`}
+            >
+              Enter coords
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onDrawMode && onDrawMode(!isDrawing)}
+            className="mt-2 w-full rounded-lg bg-[#1A7A6E] py-2 text-xs font-semibold text-white transition-colors hover:bg-[#15635A]"
+          >
+            Select Area on Map
+          </button>
+
+          {/* Satellite Timeline */}
           <div className="border-t border-gray-100 pt-4">
             <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Satellite Timeline</p>
             <div className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
