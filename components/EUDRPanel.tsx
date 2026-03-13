@@ -1,5 +1,7 @@
 'use client';
 
+import { CheckIcon, RefreshIcon, AlertIcon, XIcon, SatelliteIcon, LeafIcon, FlameIcon, TreeIcon, DocumentIcon } from '@/components/Icons';
+
 export interface EUDRPanelFarm {
   id: string;
   name: string;
@@ -17,9 +19,9 @@ interface EUDRPanelProps {
 }
 
 function getEudrStatus(apsScore: number): { label: string; bg: string } {
-  if (apsScore >= 60) return { label: '✅ EUDR Compliant', bg: 'bg-green-500' };
-  if (apsScore >= 40) return { label: '🔄 EUDR Pending', bg: 'bg-amber-500' };
-  return { label: '⚠️ EUDR Risk Detected', bg: 'bg-red-500' };
+  if (apsScore >= 60) return { label: 'EUDR Compliant', bg: 'bg-green-500' };
+  if (apsScore >= 40) return { label: 'EUDR Pending', bg: 'bg-amber-500' };
+  return { label: 'EUDR Risk Detected', bg: 'bg-red-500' };
 }
 
 function getRiskClassification(apsScore: number): string {
@@ -40,10 +42,10 @@ export default function EUDRPanel({ farm, onClose }: EUDRPanelProps) {
   const forestOk = farm.apsScore >= 60;
 
   const evidenceRows = [
-    { icon: '🛰', label: 'Sentinel-2 Analysis', value: `Completed — ${currentMonth}`, ok: sentinelOk },
-    { icon: '🌱', label: 'NDVI Baseline (2020)', value: ndviOk ? 'Vegetation confirmed' : 'Low vegetation detected', ok: ndviOk },
-    { icon: '🔥', label: 'NBR Fire History', value: nbrOk ? 'No burn events detected' : 'Historical burn detected', ok: nbrOk },
-    { icon: '🌳', label: 'Forest Cover Change', value: forestOk ? 'Stable — No deforestation' : 'Change detected — Review required', ok: forestOk },
+    { Icon: SatelliteIcon, label: 'Sentinel-2 Analysis', value: `Completed — ${currentMonth}`, ok: sentinelOk },
+    { Icon: LeafIcon, label: 'NDVI Baseline (2020)', value: ndviOk ? 'Vegetation confirmed' : 'Low vegetation detected', ok: ndviOk },
+    { Icon: FlameIcon, label: 'NBR Fire History', value: nbrOk ? 'No burn events detected' : 'Historical burn detected', ok: nbrOk },
+    { Icon: TreeIcon, label: 'Forest Cover Change', value: forestOk ? 'Stable — No deforestation' : 'Change detected — Review required', ok: forestOk },
   ];
 
   function handleExport() {
@@ -68,15 +70,18 @@ export default function EUDRPanel({ farm, onClose }: EUDRPanelProps) {
           className="absolute right-3 top-3 rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           aria-label="Close"
         >
-          ✕
+          <XIcon className="w-4 h-4" />
         </button>
       )}
 
       {/* A) EUDR STATUS HEADER */}
       <div className="mb-6">
         <div
-          className={`inline-block rounded-lg px-4 py-2 text-lg font-bold text-white ${status.bg}`}
+          className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-lg font-bold text-white ${status.bg}`}
         >
+          {status.bg === 'bg-green-500' && <CheckIcon className="w-5 h-5" />}
+          {status.bg === 'bg-amber-500' && <RefreshIcon className="w-5 h-5" />}
+          {status.bg === 'bg-red-500' && <AlertIcon className="w-5 h-5" />}
           {status.label}
         </div>
         <p className="mt-2 text-xs text-gray-500">EU Deforestation Regulation (2023/1115)</p>
@@ -95,7 +100,7 @@ export default function EUDRPanel({ farm, onClose }: EUDRPanelProps) {
             farm.apsScore >= 60 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
           }`}
         >
-          {farm.apsScore >= 60 ? '✓ Verified deforestation-free since 2020' : '⚠ Requires verification'}
+          {farm.apsScore >= 60 ? <><CheckIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Verified deforestation-free since 2020</> : <><AlertIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Requires verification</>}
         </span>
       </div>
 
@@ -103,20 +108,22 @@ export default function EUDRPanel({ farm, onClose }: EUDRPanelProps) {
       <div className="mb-6">
         <h4 className="text-sm font-semibold text-gray-800">Satellite Evidence Summary</h4>
         <div className="mt-3 space-y-2">
-          {evidenceRows.map((row) => (
+          {evidenceRows.map((row) => {
+            const RowIcon = row.Icon;
+            return (
             <div key={row.label} className="flex items-center justify-between rounded border border-gray-100 bg-gray-50 px-3 py-2">
               <div className="flex items-center gap-2">
-                <span>{row.icon}</span>
+                <RowIcon className="w-4 h-4 text-[#2D5A2E]" />
                 <div>
                   <p className="text-xs font-medium text-gray-800">{row.label}</p>
                   <p className="text-[10px] text-gray-500">{row.value}</p>
                 </div>
               </div>
               <span className={row.ok ? 'text-green-600' : 'text-red-600'}>
-                {row.ok ? '✓' : '✗'}
+                {row.ok ? <CheckIcon className="w-4 h-4" /> : <XIcon className="w-4 h-4" />}
               </span>
             </div>
-          ))}
+          ); })}
         </div>
       </div>
 
@@ -176,7 +183,7 @@ export default function EUDRPanel({ farm, onClose }: EUDRPanelProps) {
           onClick={handleDownloadPdf}
           className="w-full rounded-lg bg-[#1A7A6E] py-3 text-sm font-semibold text-white hover:bg-[#15635A]"
         >
-          📄 Download Due Diligence Statement (PDF)
+          <DocumentIcon className="w-4 h-4 inline-block align-middle mr-1" /> Download Due Diligence Statement (PDF)
         </button>
         <p className="mt-2 text-[10px] text-gray-500 text-center">
           Accepted by EU customs authorities under EUDR Article 9 compliance documentation

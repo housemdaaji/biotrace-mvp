@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { RefreshIcon } from '@/components/Icons';
 
 export default function DemoResetButton() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function DemoResetButton() {
           Resetting...
         </>
       ) : (
-        <>🔄 Load Demo Data</>
+        <><RefreshIcon className="w-4 h-4" /> Load Demo Data</>
       )}
     </button>
   );

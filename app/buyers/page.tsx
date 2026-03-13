@@ -1,6 +1,7 @@
 'use client';
 
 import GlobalNav from '@/components/GlobalNav';
+import { CartIcon } from '@/components/Icons';
 
 const FEATURED_BUYERS = [
   {
@@ -40,8 +41,8 @@ export default function BuyersPage() {
       <main className="max-w-5xl mx-auto px-4 py-10 flex-1">
         {/* Hero header */}
         <div className="mb-10">
-          <h1 className="text-3xl font-bold text-[#2D5A2E] mb-2">
-            🛒 Buyer Network
+          <h1 className="text-3xl font-bold text-[#2D5A2E] mb-2 inline-flex items-center gap-2">
+            <CartIcon className="w-8 h-8" /> Buyer Network
           </h1>
           <p className="text-gray-600 max-w-2xl">
             Connect with verified agroecology cooperatives across East Africa

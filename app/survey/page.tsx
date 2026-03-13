@@ -4,6 +4,24 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import GlobalNav from '@/components/GlobalNav';
 import MagoScoreCard, { type MetricItem } from '@/components/MagoScoreCard';
+import {
+  SatelliteIcon,
+  CheckIcon,
+  AlertIcon,
+  XIcon,
+  MedalIcon,
+  ClipboardIcon,
+  MapIcon,
+  RefreshIcon,
+  CalendarIcon,
+  BookIcon,
+  PhoneIcon,
+  TreeIcon,
+  WindIcon,
+  DropletIcon,
+  MetricIcon,
+} from '@/components/Icons';
+import type { MetricIconKey } from '@/components/Icons';
 
 const COUNTRIES = ['Kenya', 'Tunisia', 'Morocco', 'Ethiopia', 'Rwanda', 'Senegal', 'Uganda', 'Other'] as const;
 const CROPS = ['Coffee', 'Tea', 'Cocoa', 'Olive', 'Cereals', 'Banana', 'Potato', 'Other'] as const;
@@ -74,11 +92,11 @@ function buildMetricsFromScore(finalScore: number): MetricItem[] {
   const carbon = Math.max(0, Math.round(100 - apsScore + 12));
   const water = Math.max(0, Math.round(100 - apsScore + 5));
   return [
-    { icon: '🌳', name: 'Deforestation-Free Compliance', score: apsScore, unit: '/100', certified: getDeforestationStatus(apsScore) === 'green' },
-    { icon: '🏅', name: 'Agroecology Practice Score', score: apsScore, unit: '/100', certified: getApsStatus(apsScore) === 'green' },
-    { icon: '🦋', name: 'Biodiversity Score', score: biodiversity, unit: '/100', certified: getBiodiversityStatus(biodiversity) === 'green' },
-    { icon: '💨', name: 'Carbon Footprint', score: carbon, unit: 'tCO₂/ha', certified: getCarbonFootprintStatus(carbon) === 'green' },
-    { icon: '💧', name: 'Water Footprint', score: water, unit: 'm³/ha', certified: getWaterFootprintStatus(water) === 'green' },
+    { iconKey: 'deforestation', name: 'Deforestation-Free Compliance', score: apsScore, unit: '/100', certified: getDeforestationStatus(apsScore) === 'green' },
+    { iconKey: 'agroecology', name: 'Agroecology Practice Score', score: apsScore, unit: '/100', certified: getApsStatus(apsScore) === 'green' },
+    { iconKey: 'biodiversity', name: 'Biodiversity Score', score: biodiversity, unit: '/100', certified: getBiodiversityStatus(biodiversity) === 'green' },
+    { iconKey: 'carbon', name: 'Carbon Footprint', score: carbon, unit: 'tCO₂/ha', certified: getCarbonFootprintStatus(carbon) === 'green' },
+    { iconKey: 'water', name: 'Water Footprint', score: water, unit: 'm³/ha', certified: getWaterFootprintStatus(water) === 'green' },
   ];
 }
 
@@ -293,13 +311,13 @@ export default function SurveyPage() {
         {/* Step 2 — Satellite Eligibility Assessment */}
         {currentStep === 2 && (
           <div className="rounded-xl border border-gray-700 bg-white shadow-xl p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-1">🛰 Running Satellite Assessment</h2>
+            <h2 className="text-base font-semibold text-gray-900 mb-1 inline-flex items-center gap-2"><SatelliteIcon className="w-5 h-5" /> Running Satellite Assessment</h2>
             <p className="text-xs text-gray-500 mb-6">Analyzing Sentinel-2 imagery for your farm area</p>
             <div className="space-y-3">
               {ASSESSMENT_ITEMS.map((label, i) => (
                 <div key={label} className="flex items-center gap-3 py-2">
                   {assessmentProgress > i ? (
-                    <span className="text-[#1A7A6E] text-lg">✅</span>
+                    <span className="text-[#1A7A6E]"><CheckIcon className="w-5 h-5" /></span>
                   ) : (
                     <span className="h-4 w-4 flex-shrink-0 animate-spin rounded-full border-2 border-[#1A7A6E] border-t-transparent" />
                   )}
@@ -339,12 +357,12 @@ export default function SurveyPage() {
               ];
               const hasRed = statuses.some((s) => s === 'red');
               const allGreen = statuses.every((s) => s === 'green');
-              const rows = [
-                { icon: '🌳', label: 'Deforestation-Free Status', status: statuses[0] },
-                { icon: '🏅', label: 'Agroecology Practice Score', value: `${apsScore}/100`, status: statuses[1] },
-                { icon: '🦋', label: 'Biodiversity Score', value: `${biodiversity}/100`, status: statuses[2] },
-                { icon: '💨', label: 'Carbon Footprint', value: `${carbon} tCO₂/ha`, status: statuses[3] },
-                { icon: '💧', label: 'Water Footprint', value: `${water} m³/ha`, status: statuses[4] },
+              const rows: { iconKey: MetricIconKey; label: string; value?: string; status: ComplianceStatus }[] = [
+                { iconKey: 'deforestation', label: 'Deforestation-Free Status', status: statuses[0] },
+                { iconKey: 'agroecology', label: 'Agroecology Practice Score', value: `${apsScore}/100`, status: statuses[1] },
+                { iconKey: 'biodiversity', label: 'Biodiversity Score', value: `${biodiversity}/100`, status: statuses[2] },
+                { iconKey: 'carbon', label: 'Carbon Footprint', value: `${carbon} tCO₂/ha`, status: statuses[3] },
+                { iconKey: 'water', label: 'Water Footprint', value: `${water} m³/ha`, status: statuses[4] },
               ];
               return (
                 <>
@@ -353,8 +371,8 @@ export default function SurveyPage() {
                       allGreen ? 'border-green-200 bg-green-50' : hasRed ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'
                     }`}
                   >
-                    <p className={`text-xs font-bold ${allGreen ? 'text-green-700' : hasRed ? 'text-red-700' : 'text-amber-700'}`}>
-                      {allGreen ? '✅ EUDR Compliant' : hasRed ? '⚠️ EUDR Risk Detected' : '🔄 EUDR Pending'}
+                    <p className={`text-xs font-bold inline-flex items-center gap-1 ${allGreen ? 'text-green-700' : hasRed ? 'text-red-700' : 'text-amber-700'}`}>
+                      {allGreen ? <><CheckIcon className="w-3.5 h-3.5" /> EUDR Compliant</> : hasRed ? <><AlertIcon className="w-3.5 h-3.5" /> EUDR Risk Detected</> : <><RefreshIcon className="w-3.5 h-3.5" /> EUDR Pending</>}
                     </p>
                     <p className={`text-[10px] ${allGreen ? 'text-green-600' : hasRed ? 'text-red-600' : 'text-amber-600'}`}>
                       {allGreen ? 'Deforestation-free verified · Ready for EU market' : hasRed ? 'Action required before certification' : 'Improvements needed · Re-assess in 90 days'}
@@ -364,25 +382,25 @@ export default function SurveyPage() {
                     {rows.map((row) => (
                       <div key={row.label} className="flex items-center justify-between py-2 px-2 first:pt-2 last:pb-2">
                         <div className="flex items-center gap-2">
-                          <span>{row.icon}</span>
+                          <span className="text-[#2D5A2E]"><MetricIcon iconKey={row.iconKey} className="w-4 h-4" /></span>
                           <div>
                             <p className="text-xs font-semibold text-gray-700">{row.label}</p>
                             {row.value != null && <p className="text-[10px] text-gray-400">{row.value}</p>}
                           </div>
                         </div>
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
                             row.status === 'green' ? 'bg-green-100 text-green-700' : row.status === 'yellow' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'
                           }`}
                         >
-                          {row.status === 'green' ? '✓ Compliant' : row.status === 'yellow' ? '⚠ Needs Attention' : '✗ Non-Compliant'}
+                          {row.status === 'green' ? <><CheckIcon className="w-3 h-3" /> Compliant</> : row.status === 'yellow' ? <><AlertIcon className="w-3 h-3" /> Needs Attention</> : <><XIcon className="w-3 h-3" /> Non-Compliant</>}
                         </span>
                       </div>
                     ))}
                   </div>
                   {finalScore >= 60 ? (
                     <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-3 mb-4">
-                      <p className="text-sm font-bold text-green-700">🎉 Congratulations! You qualify for certification</p>
+                      <p className="text-sm font-bold text-green-700 inline-flex items-center gap-1"><CheckIcon className="w-4 h-4" /> Congratulations! You qualify for certification</p>
                       <button
                         type="button"
                         onClick={() => setCurrentStep(4)}
@@ -393,7 +411,7 @@ export default function SurveyPage() {
                     </div>
                   ) : (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 mb-4">
-                      <p className="text-sm font-bold text-amber-700">📋 You need improvements before certification</p>
+                      <p className="text-sm font-bold text-amber-700 inline-flex items-center gap-1"><ClipboardIcon className="w-4 h-4" /> You need improvements before certification</p>
                       <button
                         type="button"
                         onClick={() => setCurrentStep(4)}
@@ -420,7 +438,7 @@ export default function SurveyPage() {
             />
             <div className="rounded-xl border-2 border-[#1A7A6E] bg-white shadow-xl overflow-hidden">
               <div className="bg-[#1A7A6E] text-white px-4 py-3 text-center">
-                <p className="text-sm font-bold">🏅 Mago Agroecology</p>
+                <p className="text-sm font-bold inline-flex items-center gap-2"><MedalIcon className="w-4 h-4" /> Mago Agroecology</p>
                 <p className="text-sm font-bold">Certificate</p>
               </div>
               <div className="p-4 space-y-2 text-sm text-gray-800">
@@ -430,7 +448,7 @@ export default function SurveyPage() {
                 <p><span className="text-gray-500">Crop:</span> {formData.primaryCrop}</p>
                 <p><span className="text-gray-500">Farm Size:</span> {formData.farmSize} ha</p>
                 <p><span className="text-gray-500">APS Score:</span> {finalScore}/100</p>
-                <p><span className="text-gray-500">EUDR Status:</span> ✅ Compliant</p>
+                <p><span className="text-gray-500">EUDR Status:</span> <span className="inline-flex items-center gap-1"><CheckIcon className="w-3.5 h-3.5" /> Compliant</span></p>
                 <p><span className="text-gray-500">Certificate ID:</span> {certId}</p>
                 <p><span className="text-gray-500">Issue Date:</span> {new Date().toLocaleDateString('en-GB')}</p>
                 <p><span className="text-gray-500">Valid Until:</span> {new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB')}</p>
@@ -447,21 +465,21 @@ export default function SurveyPage() {
                 href="/map"
                 className="rounded-lg border-2 border-[#1A7A6E] bg-white text-[#1A7A6E] font-semibold py-2.5 text-sm text-center hover:bg-[#f0faf9]"
               >
-                🗺 View on Map →
+                <MapIcon className="w-4 h-4 inline-block align-middle mr-1" /> View on Map →
               </Link>
               <button
                 type="button"
                 onClick={() => typeof window !== 'undefined' && window.print()}
                 className="w-full rounded-lg bg-[#1A7A6E] text-white font-semibold py-2.5 text-sm hover:bg-[#15635A]"
               >
-                📋 Download Certificate
+                <ClipboardIcon className="w-4 h-4 inline-block align-middle mr-1" /> Download Certificate
               </button>
               <button
                 type="button"
                 onClick={resetToStep1}
                 className="w-full rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold py-2.5 text-sm hover:bg-gray-50"
               >
-                🔄 Register Another Farm
+                <RefreshIcon className="w-4 h-4 inline-block align-middle mr-1" /> Register Another Farm
               </button>
             </div>
           </div>
@@ -477,11 +495,11 @@ export default function SurveyPage() {
               onGenerateReport={() => {}}
             />
             <div className="rounded-xl border border-gray-700 bg-white shadow-xl p-6">
-              <h2 className="text-base font-semibold text-gray-900 mb-1">📋 Your Personalized Improvement Roadmap</h2>
+              <h2 className="text-base font-semibold text-gray-900 mb-1 inline-flex items-center gap-2"><ClipboardIcon className="w-5 h-5" /> Your Personalized Improvement Roadmap</h2>
               <p className="text-xs text-gray-500 mb-4">Complete these steps to qualify for Mago certification</p>
               <div className="space-y-3 mb-4">
                 <div className="rounded-lg border-l-4 border-[#1A7A6E] bg-white p-3 border border-gray-100 shadow-sm">
-                  <p className="text-sm font-medium text-gray-800">📅 90-day reassessment scheduled</p>
+                  <p className="text-sm font-medium text-gray-800 inline-flex items-center gap-1"><CalendarIcon className="w-4 h-4" /> 90-day reassessment scheduled</p>
                   <p className="text-[10px] text-gray-500 mt-0.5">Complete the steps below and return for re-evaluation</p>
                 </div>
                 {(() => {
@@ -491,23 +509,25 @@ export default function SurveyPage() {
                   const deforestStatus = getDeforestationStatus(apsScore);
                   const carbonStatus = getCarbonFootprintStatus(carbon);
                   const waterStatus = getWaterFootprintStatus(water);
-                  const items: { action: string; timeline: string; link?: string }[] = [];
+                  const items: { action: string; timeline: string; link?: string; Icon: typeof TreeIcon }[] = [];
                   if (deforestStatus !== 'green') {
-                    items.push({ action: '🌳 Plant cover crops or native trees on bare areas', timeline: '30 days' });
+                    items.push({ action: 'Plant cover crops or native trees on bare areas', timeline: '30 days', Icon: TreeIcon });
                   }
                   if (apsScore < 70) {
-                    items.push({ action: '📖 Complete Mago Agroecology Training Module', timeline: '14 days', link: 'Start Training →' });
+                    items.push({ action: 'Complete Mago Agroecology Training Module', timeline: '14 days', link: 'Start Training →', Icon: BookIcon });
                   }
                   if (carbonStatus === 'red') {
-                    items.push({ action: '💨 Reduce tillage and adopt composting practices', timeline: '60 days' });
+                    items.push({ action: 'Reduce tillage and adopt composting practices', timeline: '60 days', Icon: WindIcon });
                   }
                   if (waterStatus === 'red') {
-                    items.push({ action: '💧 Install drip irrigation or water retention systems', timeline: '45 days' });
+                    items.push({ action: 'Install drip irrigation or water retention systems', timeline: '45 days', Icon: DropletIcon });
                   }
-                  items.push({ action: '📞 Schedule a call with a Mago Field Advisor', timeline: 'This week', link: 'Book Call →' });
-                  return items.map((item, i) => (
+                  items.push({ action: 'Schedule a call with a Mago Field Advisor', timeline: 'This week', link: 'Book Call →', Icon: PhoneIcon });
+                  return items.map((item, i) => {
+                    const ActionIcon = item.Icon;
+                    return (
                     <div key={i} className="rounded-lg border-l-4 border-[#1A7A6E] bg-white p-3 border border-gray-100 shadow-sm">
-                      <p className="text-sm font-medium text-gray-800">{item.action}</p>
+                      <p className="text-sm font-medium text-gray-800 inline-flex items-center gap-2"><ActionIcon className="w-4 h-4 text-[#2D5A2E]" /> {item.action}</p>
                       <div className="flex items-center justify-between mt-1">
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{item.timeline}</span>
                         {item.link && (
@@ -515,7 +535,7 @@ export default function SurveyPage() {
                         )}
                       </div>
                     </div>
-                  ));
+                  ); });
                 })()}
               </div>
               <div className="flex flex-col gap-2 pt-2">
@@ -524,13 +544,13 @@ export default function SurveyPage() {
                   onClick={resetToStep1}
                   className="w-full rounded-lg border border-gray-300 bg-white text-gray-700 font-semibold py-2.5 text-sm hover:bg-gray-50"
                 >
-                  🔄 Start Over
+                  <RefreshIcon className="w-4 h-4 inline-block align-middle mr-1" /> Start Over
                 </button>
                 <Link
                   href="/map"
                   className="w-full rounded-lg bg-[#1A7A6E] text-white font-semibold py-2.5 text-sm text-center hover:bg-[#15635A]"
                 >
-                  🗺 View Map →
+                  <MapIcon className="w-4 h-4 inline-block align-middle mr-1" /> View Map →
                 </Link>
               </div>
             </div>

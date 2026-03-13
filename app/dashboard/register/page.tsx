@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { CheckIcon } from '@/components/Icons';
 
 const COOP_OPTIONS = [
   { value: 'kenyacoop-a', label: 'KenyaCoop-A — Meru North' },
@@ -165,7 +166,7 @@ export default function RegisterFarmPage() {
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Farm Registration</h1>
           <p className="mt-2 text-sm text-gray-600">Cooperative manager flow</p>
           <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-lg">
-            <h2 className="text-xl font-semibold text-gray-900">✅ Farm Registered Successfully</h2>
+            <h2 className="text-xl font-semibold text-gray-900 inline-flex items-center gap-2"><CheckIcon className="w-6 h-6 text-green-600" /> Farm Registered Successfully</h2>
             <p className="mt-4 text-gray-700">
               <span className="font-medium">{successFarm.farmerName}&apos;s Farm</span>
             </p>

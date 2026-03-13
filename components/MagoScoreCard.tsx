@@ -1,7 +1,10 @@
 'use client';
 
+import { LeafIcon, CheckIcon, AlertIcon, DocumentIcon, MetricIcon } from '@/components/Icons';
+import type { MetricIconKey } from '@/components/Icons';
+
 export interface MetricItem {
-  icon: string;
+  iconKey: MetricIconKey;
   name: string;
   score: number;
   unit: string;
@@ -16,11 +19,11 @@ export interface MagoScoreCardProps {
 }
 
 const DEFAULT_METRICS: MetricItem[] = [
-  { icon: '🌳', name: 'Deforestation-Free Compliance', score: 58, unit: '/100', certified: true },
-  { icon: '🏅', name: 'Agroecology Practice Score', score: 58, unit: '/100', certified: false },
-  { icon: '🦋', name: 'Biodiversity Score', score: 66, unit: '/100', certified: true },
-  { icon: '💨', name: 'Carbon Footprint', score: 54, unit: 'tCO₂/ha', certified: false },
-  { icon: '💧', name: 'Water Footprint', score: 47, unit: 'm³/ha', certified: true },
+  { iconKey: 'deforestation', name: 'Deforestation-Free Compliance', score: 58, unit: '/100', certified: true },
+  { iconKey: 'agroecology', name: 'Agroecology Practice Score', score: 58, unit: '/100', certified: false },
+  { iconKey: 'biodiversity', name: 'Biodiversity Score', score: 66, unit: '/100', certified: true },
+  { iconKey: 'carbon', name: 'Carbon Footprint', score: 54, unit: 'tCO₂/ha', certified: false },
+  { iconKey: 'water', name: 'Water Footprint', score: 47, unit: 'm³/ha', certified: true },
 ];
 
 const DEFAULT_SCORE = 63;
@@ -52,7 +55,7 @@ export default function MagoScoreCard({
 
       {/* Section 1 — Header Score (with logo for print/certificate) */}
       <div className="mb-2 flex items-center gap-3">
-        <span className="text-sm font-bold text-[#2D5A2E]">🌱 Mago</span>
+        <span className="text-sm font-bold text-[#2D5A2E] inline-flex items-center gap-1"><LeafIcon className="w-4 h-4" /> Mago</span>
         <span className="text-sm font-semibold tracking-wide text-gray-600">Sustainability Score</span>
       </div>
       <div className="mt-1 flex items-baseline gap-1">
@@ -78,11 +81,11 @@ export default function MagoScoreCard({
       <div className="mt-2">
         {onTrack ? (
           <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
-            ✓ On Track &gt;
+            <CheckIcon className="w-3.5 h-3.5 mr-0.5" /> On Track &gt;
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
-            ⚠ Improvement Required &gt;
+            <AlertIcon className="w-3.5 h-3.5 mr-0.5" /> Improvement Required &gt;
           </span>
         )}
       </div>
@@ -94,11 +97,8 @@ export default function MagoScoreCard({
             key={m.name}
             className="flex items-center gap-3 rounded-xl border border-gray-100 bg-white p-4"
           >
-            <span
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-base"
-              aria-hidden
-            >
-              {m.icon}
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[#2D5A2E]">
+              <MetricIcon iconKey={m.iconKey} className="w-5 h-5" />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-gray-800">{m.name}</p>
@@ -107,12 +107,12 @@ export default function MagoScoreCard({
               </p>
             </div>
             {m.certified ? (
-              <span className="shrink-0 rounded-full border border-green-200 bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
-                ✓ Certified &gt;
+              <span className="shrink-0 inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                <CheckIcon className="w-3.5 h-3.5" /> Certified &gt;
               </span>
             ) : (
-              <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
-                ⚠ Improvement Required &gt;
+              <span className="shrink-0 inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
+                <AlertIcon className="w-3.5 h-3.5" /> Improvement Required &gt;
               </span>
             )}
           </div>
@@ -124,9 +124,9 @@ export default function MagoScoreCard({
         <p className="text-sm font-bold text-gray-800">
           Certification Status{' '}
           {isCertified ? (
-            <span className="font-semibold text-green-600">✓ Certified</span>
+            <span className="inline-flex items-center font-semibold text-green-600"><CheckIcon className="w-4 h-4" /> Certified</span>
           ) : (
-            <span className="font-semibold text-amber-600">⚠ Not Yet Certified</span>
+            <span className="inline-flex items-center font-semibold text-amber-600"><AlertIcon className="w-4 h-4" /> Not Yet Certified</span>
           )}
         </p>
         {!isCertified && (
@@ -139,7 +139,7 @@ export default function MagoScoreCard({
           onClick={() => onGenerateReport?.()}
           className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#2D5A45] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#234535]"
         >
-          📋 Generate Certification Report
+          <DocumentIcon className="w-4 h-4" /> Generate Certification Report
         </button>
       </div>
     </div>

@@ -8,6 +8,21 @@ import type { Farm, Cooperative } from './types';
 import { computeAGB, computeCarbonProxy, agbRating, carbonRating } from '@/lib/biomass';
 import type { SentinelResult } from '@/components/SentinelPanel';
 import MagoScoreCard, { type MetricItem } from '@/components/MagoScoreCard';
+import {
+  MetricIcon,
+  CheckIcon,
+  AlertIcon,
+  XIcon,
+  ClipboardIcon,
+  LeafIcon,
+  MapIcon,
+  SatelliteIcon,
+  RefreshIcon,
+  ChevronDownIcon,
+  PlayIcon,
+  PauseIcon,
+} from '@/components/Icons';
+import type { MetricIconKey } from '@/components/Icons';
 
 import 'leaflet-draw/dist/leaflet.draw.css';
 
@@ -90,29 +105,30 @@ function buildMetricsFromFarm(farm: Farm): MetricItem[] {
   const carbon = Math.max(0, Math.round(100 - apsScore + 12));
   const water = Math.max(0, Math.round(100 - apsScore + 5));
   return [
-    { icon: '🌳', name: 'Deforestation-Free Compliance', score: apsScore, unit: '/100', certified: getDeforestationStatus(apsScore) === 'green' },
-    { icon: '🏅', name: 'Agroecology Practice Score', score: apsScore, unit: '/100', certified: getApsStatus(apsScore) === 'green' },
-    { icon: '🦋', name: 'Biodiversity Score', score: biodiversity, unit: '/100', certified: getBiodiversityStatus(biodiversity) === 'green' },
-    { icon: '💨', name: 'Carbon Footprint', score: carbon, unit: 'tCO₂/ha', certified: getCarbonFootprintStatus(carbon) === 'green' },
-    { icon: '💧', name: 'Water Footprint', score: water, unit: 'm³/ha', certified: getWaterFootprintStatus(water) === 'green' },
+    { iconKey: 'deforestation', name: 'Deforestation-Free Compliance', score: apsScore, unit: '/100', certified: getDeforestationStatus(apsScore) === 'green' },
+    { iconKey: 'agroecology', name: 'Agroecology Practice Score', score: apsScore, unit: '/100', certified: getApsStatus(apsScore) === 'green' },
+    { iconKey: 'biodiversity', name: 'Biodiversity Score', score: biodiversity, unit: '/100', certified: getBiodiversityStatus(biodiversity) === 'green' },
+    { iconKey: 'carbon', name: 'Carbon Footprint', score: carbon, unit: 'tCO₂/ha', certified: getCarbonFootprintStatus(carbon) === 'green' },
+    { iconKey: 'water', name: 'Water Footprint', score: water, unit: 'm³/ha', certified: getWaterFootprintStatus(water) === 'green' },
   ];
 }
 
 const deforestationFlagIcon = divIcon({
   className: 'deforestation-flag',
-  html: `<div style="width:28px;height:28px;border-radius:50%;background:#dc2626;color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3);">🌲⚠️</div>`,
+  html: `<div style="width:28px;height:28px;border-radius:50%;background:#dc2626;color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3);">!</div>`,
   iconSize: [28, 28],
   iconAnchor: [14, 14],
 });
 
 function getCooperativeLabelIcon(name: string, crop: string) {
-  let emoji = '🌾';
-  if (crop.toLowerCase().includes('coffee')) emoji = '☕';
-  else if (crop.toLowerCase().includes('tea')) emoji = '🍵';
-  
+  let initial = 'G';
+  if (crop.toLowerCase().includes('coffee')) initial = 'C';
+  else if (crop.toLowerCase().includes('tea')) initial = 'T';
+  else if (crop.toLowerCase().includes('cocoa')) initial = 'K';
+  else if (crop.toLowerCase().includes('olive')) initial = 'O';
   return divIcon({
     className: '',
-    html: `<div style="background:#0D3D35;color:#0DF5B4;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:bold;white-space:nowrap;border:1px solid #1A7A6E;box-shadow:0 2px 4px rgba(0,0,0,0.2);transform:translate(-50%,-50%);">${emoji} ${name}</div>`,
+    html: `<div style="background:#0D3D35;color:#0DF5B4;padding:4px 8px;border-radius:12px;font-size:11px;font-weight:bold;white-space:nowrap;border:1px solid #1A7A6E;box-shadow:0 2px 4px rgba(0,0,0,0.2);transform:translate(-50%,-50%);">${initial} ${name}</div>`,
     iconSize: [0, 0],
     iconAnchor: [0, 0],
   });
@@ -446,7 +462,7 @@ export default function MapView({
               </div>
               {selectedFarm.deforestationRisk && (
                 <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-                  ⚠️ Deforestation Risk Detected — Canopy loss &gt;20% YoY
+                  <span className="inline-flex items-center gap-1"><AlertIcon className="w-4 h-4" /> Deforestation Risk Detected — Canopy loss &gt;20% YoY</span>
                 </div>
               )}
               <dl className="mt-4 flex flex-col gap-4">
@@ -503,49 +519,51 @@ export default function MapView({
                 const allGreen = statuses.every((s) => s === 'green');
                 const eudrSummary =
                   allGreen
-                    ? { type: 'compliant' as const, title: '✅ EUDR Compliant', desc: 'Deforestation-free verified · Ready for EU market' }
+                    ? { type: 'compliant' as const, title: 'EUDR Compliant', desc: 'Deforestation-free verified · Ready for EU market', Icon: CheckIcon }
                     : hasRed
-                      ? { type: 'risk' as const, title: '⚠️ EUDR Risk Detected', desc: 'Action required before certification' }
-                      : { type: 'pending' as const, title: '🔄 EUDR Pending', desc: 'Improvements needed · Re-assess in 90 days' };
-                const rows: Array<{ icon: string; label: string; value?: string; status: ComplianceStatus }> = [
-                  { icon: '🌳', label: 'Deforestation-Free Status', status: deforestStatus },
-                  { icon: '🏅', label: 'Agroecology Practice Score', value: `${apsScore}/100`, status: apsStatus },
-                  { icon: '🦋', label: 'Biodiversity Score', value: `${biodiversity}/100`, status: bioStatus },
-                  { icon: '💨', label: 'Carbon Footprint', value: `${carbon} tCO₂/ha`, status: carbonStatus },
-                  { icon: '💧', label: 'Water Footprint', value: `${water} m³/ha`, status: waterStatus },
+                      ? { type: 'risk' as const, title: 'EUDR Risk Detected', desc: 'Action required before certification', Icon: AlertIcon }
+                      : { type: 'pending' as const, title: 'EUDR Pending', desc: 'Improvements needed · Re-assess in 90 days', Icon: RefreshIcon };
+                const rows: Array<{ iconKey: MetricIconKey; label: string; value?: string; status: ComplianceStatus }> = [
+                  { iconKey: 'deforestation', label: 'Deforestation-Free Status', status: deforestStatus },
+                  { iconKey: 'agroecology', label: 'Agroecology Practice Score', value: `${apsScore}/100`, status: apsStatus },
+                  { iconKey: 'biodiversity', label: 'Biodiversity Score', value: `${biodiversity}/100`, status: bioStatus },
+                  { iconKey: 'carbon', label: 'Carbon Footprint', value: `${carbon} tCO₂/ha`, status: carbonStatus },
+                  { iconKey: 'water', label: 'Water Footprint', value: `${water} m³/ha`, status: waterStatus },
                 ];
                 return (
                   <>
                     <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
                       <div className="mb-3 flex items-center gap-2">
-                        <span className="text-base" aria-hidden>📋</span>
+                        <ClipboardIcon className="w-4 h-4 text-[#2D5A2E]" />
                         <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Compliance indicators</span>
                       </div>
                       <div className={`mb-3 rounded-lg border px-3 py-2 text-center ${eudrSummary.type === 'compliant' ? 'border-green-200 bg-green-50' : eudrSummary.type === 'risk' ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
-                        <p className={`text-xs font-bold ${eudrSummary.type === 'compliant' ? 'text-green-700' : eudrSummary.type === 'risk' ? 'text-red-700' : 'text-amber-700'}`}>{eudrSummary.title}</p>
+                        <p className={`text-xs font-bold inline-flex items-center justify-center gap-1 ${eudrSummary.type === 'compliant' ? 'text-green-700' : eudrSummary.type === 'risk' ? 'text-red-700' : 'text-amber-700'}`}>
+                          {(() => { const EudrIcon = eudrSummary.Icon; return <><EudrIcon className="w-3.5 h-3.5" /> {eudrSummary.title}</>; })()}
+                        </p>
                         <p className={`text-[10px] ${eudrSummary.type === 'compliant' ? 'text-green-600' : eudrSummary.type === 'risk' ? 'text-red-600' : 'text-amber-600'}`}>{eudrSummary.desc}</p>
                       </div>
                       <div className="rounded-lg border border-gray-100 bg-white">
                         {rows.map((row) => (
                           <div key={row.label} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
                             <div className="flex items-center gap-2">
-                              <span>{row.icon}</span>
+                              <span className="text-[#2D5A2E]"><MetricIcon iconKey={row.iconKey} className="w-4 h-4" /></span>
                               <div>
                                 <p className="text-xs font-semibold text-gray-700">{row.label}</p>
                                 {row.value != null && <p className="text-[10px] text-gray-400">{row.value}</p>}
                               </div>
                             </div>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${row.status === 'green' ? 'bg-green-100 text-green-700' : row.status === 'yellow' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
-                              {row.status === 'green' ? '✓ Compliant' : row.status === 'yellow' ? '⚠ Needs Attention' : '✗ Non-Compliant'}
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${row.status === 'green' ? 'bg-green-100 text-green-700' : row.status === 'yellow' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
+                              {row.status === 'green' ? <><CheckIcon className="w-3 h-3" /> Compliant</> : row.status === 'yellow' ? <><AlertIcon className="w-3 h-3" /> Needs Attention</> : <><XIcon className="w-3 h-3" /> Non-Compliant</>}
                             </span>
                           </div>
                         ))}
                       </div>
-                      <button type="button" onClick={() => typeof window !== 'undefined' && window.open('/eudr', '_blank')} className="mt-3 w-full rounded-lg bg-[#1A7A6E] py-2 text-sm font-medium text-white hover:bg-[#15635A]">📋 View Full EUDR Report</button>
+                      <button type="button" onClick={() => typeof window !== 'undefined' && window.open('/eudr', '_blank')} className="mt-3 w-full rounded-lg bg-[#1A7A6E] py-2 text-sm font-medium text-white hover:bg-[#15635A] inline-flex items-center justify-center gap-2"><ClipboardIcon className="w-4 h-4" /> View Full EUDR Report</button>
                     </div>
                     <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
                       <div className="mb-3 flex items-center gap-2">
-                        <span className="text-base" aria-hidden>🌱</span>
+                        <LeafIcon className="w-4 h-4" />
                         <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">Biomass & Carbon</span>
                         <span className="ml-auto rounded-full bg-[#1A7A6E]/10 px-2 py-0.5 text-xs text-[#1A7A6E]">Sentinel-2 proxy</span>
                       </div>
@@ -626,24 +644,24 @@ export default function MapView({
           <button
             type="button"
             onClick={() => setBasemap('street')}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors ${
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors inline-flex items-center ${
               basemap === 'street'
                 ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
                 : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
             }`}
           >
-            🗺 Street
+            <MapIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Street
           </button>
           <button
             type="button"
             onClick={() => setBasemap('satellite')}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors ${
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors inline-flex items-center ${
               basemap === 'satellite'
                 ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
                 : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
             }`}
           >
-            🛰 Satellite
+            <SatelliteIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Satellite
           </button>
         </div>
 
@@ -689,12 +707,8 @@ export default function MapView({
             className="flex w-full items-center justify-between text-left text-xs font-bold uppercase tracking-wide text-gray-500"
           >
             Legend
-            <span
-              className="inline-block text-gray-400 transition-transform"
-              style={{ transform: legendCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
-              aria-hidden
-            >
-              ▼
+            <span className="inline-block text-gray-400 transition-transform" style={{ transform: legendCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>
+              <ChevronDownIcon className="w-4 h-4" />
             </span>
           </button>
           {!legendCollapsed && (
@@ -706,15 +720,15 @@ export default function MapView({
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#16a34a' }} />
-                    <span className="text-sm text-gray-700">🟢 Good</span>
+                    <span className="text-sm text-gray-700">Good</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#f59e0b' }} />
-                    <span className="text-sm text-gray-700">🟡 Moderate</span>
+                    <span className="text-sm text-gray-700">Moderate</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
-                    <span className="text-sm text-gray-700">🔴 At Risk</span>
+                    <span className="text-sm text-gray-700">At Risk</span>
                   </div>
                 </div>
               </div>
@@ -726,19 +740,19 @@ export default function MapView({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#15803d' }} />
-                      <span className="text-sm text-gray-700">🟢 High</span>
+                      <span className="text-sm text-gray-700">High</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#86efac' }} />
-                      <span className="text-sm text-gray-700">🟡 Moderate</span>
+                      <span className="text-sm text-gray-700">Moderate</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#fde047' }} />
-                      <span className="text-sm text-gray-700">🟠 Low</span>
+                      <span className="text-sm text-gray-700">Low</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
-                      <span className="text-sm text-gray-700">🔴 Very Low</span>
+                      <span className="text-sm text-gray-700">Very Low</span>
                     </div>
                   </div>
                 </div>
@@ -767,7 +781,7 @@ export default function MapView({
                     className="h-3 w-3 shrink-0 rounded-sm border-2 border-red-600"
                     style={{ borderStyle: 'dashed', backgroundColor: 'transparent' }}
                   />
-                  <span className="text-sm text-gray-700">⚠️ Red dashed border = Deforestation Risk</span>
+                  <span className="text-sm text-gray-700 inline-flex items-center gap-1"><AlertIcon className="w-3.5 h-3.5" /> Red dashed border = Deforestation Risk</span>
                 </div>
               </div>
               {/* Section 4 — Biomass Scale */}
@@ -894,7 +908,7 @@ export default function MapView({
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-100"
                 aria-label={isPlaying ? 'Pause' : 'Play'}
               >
-                {isPlaying ? <span className="text-sm" aria-hidden>⏸</span> : <span className="text-sm" aria-hidden>▶</span>}
+                {isPlaying ? <PauseIcon className="w-4 h-4" /> : <PlayIcon className="w-4 h-4" />}
               </button>
               <div className="min-w-0 flex-1">
                 <span className="text-sm font-bold text-[#1A7A6E] block">{months[monthIndex] ?? ''}</span>

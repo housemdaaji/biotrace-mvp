@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import GlobalNav from '@/components/GlobalNav';
+import { LeafIcon, TrendingDownIcon, SearchIcon, SatelliteIcon, ClipboardIcon, TrophyIcon, CpuIcon, ChartIcon } from '@/components/Icons';
 
 export default function LandingPage() {
   return (
@@ -52,8 +53,8 @@ export default function LandingPage() {
           </h2>
           <div className="mt-12 grid gap-6 md:grid-cols-3">
             <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0DF5B4]/20 text-2xl">
-                🌱
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0DF5B4]/20 text-[#2D5A2E]">
+                <LeafIcon className="w-6 h-6" />
               </div>
               <h3 className="mt-4 text-lg font-bold text-gray-900">No Verification</h3>
               <p className="mt-2 text-sm text-gray-600">
@@ -61,8 +62,8 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0DF5B4]/20 text-2xl">
-                📉
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0DF5B4]/20 text-[#2D5A2E]">
+                <TrendingDownIcon className="w-6 h-6" />
               </div>
               <h3 className="mt-4 text-lg font-bold text-gray-900">Price Penalty</h3>
               <p className="mt-2 text-sm text-gray-600">
@@ -70,8 +71,8 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0DF5B4]/20 text-2xl">
-                🔍
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#0DF5B4]/20 text-[#2D5A2E]">
+                <SearchIcon className="w-6 h-6" />
               </div>
               <h3 className="mt-4 text-lg font-bold text-gray-900">Buyer Blind Spots</h3>
               <p className="mt-2 text-sm text-gray-600">
@@ -163,40 +164,40 @@ export default function LandingPage() {
           </h2>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <span className="text-2xl">🛰️</span>
+              <span className="text-[#2D5A2E]"><SatelliteIcon className="w-8 h-8" /></span>
               <h3 className="mt-2 font-semibold text-gray-900">Live Satellite Imagery</h3>
               <p className="mt-1 text-sm text-gray-600">
                 Real-time NDVI, NDWI, EVI via Sentinel Hub
               </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <span className="text-2xl">📋</span>
+              <span className="text-[#2D5A2E]"><ClipboardIcon className="w-8 h-8" /></span>
               <h3 className="mt-2 font-semibold text-gray-900">EUDR Compliance</h3>
               <p className="mt-1 text-sm text-gray-600">
                 Full deforestation risk assessment aligned with EU 2023/1115
               </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <span className="text-2xl">🏆</span>
+              <span className="text-[#2D5A2E]"><TrophyIcon className="w-8 h-8" /></span>
               <h3 className="mt-2 font-semibold text-gray-900">Digital Certificates</h3>
               <p className="mt-1 text-sm text-gray-600">
                 QR-linked PDF certificates per cooperative
               </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <span className="text-2xl">🔍</span>
+              <span className="text-[#2D5A2E]"><SearchIcon className="w-8 h-8" /></span>
               <h3 className="mt-2 font-semibold text-gray-900">Buyer Portal</h3>
               <p className="mt-1 text-sm text-gray-600">Searchable ESG directory</p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <span className="text-2xl">🤖</span>
+              <span className="text-[#2D5A2E]"><CpuIcon className="w-8 h-8" /></span>
               <h3 className="mt-2 font-semibold text-gray-900">AI Improvement Roadmap</h3>
               <p className="mt-1 text-sm text-gray-600">
                 Auto improvement plans for sub-threshold farms
               </p>
             </div>
             <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-              <span className="text-2xl">📊</span>
+              <span className="text-[#2D5A2E]"><ChartIcon className="w-8 h-8" /></span>
               <h3 className="mt-2 font-semibold text-gray-900">Biomass Tracking</h3>
               <p className="mt-1 text-sm text-gray-600">
                 Carbon sequestration monitoring via satellite
@@ -287,7 +288,7 @@ export default function LandingPage() {
             <p className="text-xs text-white/40">
               © 2026 FLAHTIK · www.flahtik.com · contact@flahtik.com
             </p>
-            <p className="mt-1 text-xs text-white/40">🌱 Mago is a FLAHTIK product</p>
+            <p className="mt-1 text-xs text-white/40 inline-flex items-center gap-1"><LeafIcon className="w-3.5 h-3.5" fill="currentColor" /> Mago is a FLAHTIK product</p>
           </div>
         </div>
       </section>

@@ -8,7 +8,7 @@ import { getSession } from '@/lib/auth';
 
 const navLinks = [
   { href: '/map', label: 'Map' },
-  { href: '/survey', label: '📋 Survey' },
+  { href: '/survey', label: 'Survey' },
   { href: '/buyers', label: 'Buyers' },
 ] as const;
 

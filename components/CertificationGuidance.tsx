@@ -1,6 +1,7 @@
 'use client';
 
 import { getCertificationGap } from '@/lib/certification-tips';
+import { TrophyIcon } from '@/components/Icons';
 
 interface Props {
   farm: {
@@ -21,7 +22,7 @@ export default function CertificationGuidance({ farm }: Props) {
     return (
       <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4">
         <div className="flex items-center gap-2">
-          <span className="text-xl" aria-hidden>🏆</span>
+          <TrophyIcon className="w-5 h-5 text-[#2D5A2E]" />
           <div>
             <p className="text-sm font-semibold text-green-800">Certification Eligible</p>
             <p className="text-xs text-green-600">

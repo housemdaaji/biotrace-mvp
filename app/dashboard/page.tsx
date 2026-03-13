@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import GlobalNav from '@/components/GlobalNav';
 import MagoScoreCard from '@/components/MagoScoreCard';
+import { LeafIcon, MapIcon, ClipboardIcon, CartIcon, GlobeIcon, CheckIcon, SatelliteIcon, XIcon } from '@/components/Icons';
 
 export default function DashboardPage() {
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -22,30 +23,35 @@ export default function DashboardPage() {
       text: "This platform certifies smallholder farms using satellite data. Let's take a quick tour.",
       cta: null,
       onClick: null,
+      Icon: LeafIcon,
     },
     {
-      title: "🗺 Satellite Map",
+      title: "Satellite Map",
       text: "View 18 farms across 3 Kenyan cooperatives. Each circle shows a farm's APS score in real time.",
       cta: "Open Map →",
       onClick: () => window.open('/map', '_blank'),
+      Icon: MapIcon,
     },
     {
-      title: "🌱 Register a Farm",
+      title: "Register a Farm",
       text: "Walk through the 4-step farmer onboarding. Satellite assessment runs automatically.",
       cta: "Try Registration →",
       onClick: () => window.open('/survey', '_blank'),
+      Icon: LeafIcon,
     },
     {
-      title: "📋 EUDR Compliance",
+      title: "EUDR Compliance",
       text: "Generate due diligence statements accepted under EU Deforestation Regulation Article 9.",
       cta: "View EUDR Center →",
       onClick: () => window.open('/eudr', '_blank'),
+      Icon: ClipboardIcon,
     },
     {
-      title: "🛒 Buyer Portal",
+      title: "Buyer Portal",
       text: "Buyers can filter and download compliance packages for verified cooperative suppliers.",
       cta: "Open Buyer Portal →",
       onClick: () => window.open('/buyers', '_blank'),
+      Icon: CartIcon,
     }
   ];
 
@@ -56,7 +62,7 @@ export default function DashboardPage() {
       {/* Hero Section */}
       <section className="bg-[#060A08] px-6 py-12 text-white">
         <div className="mx-auto max-w-5xl text-center md:text-left">
-          <h1 className="text-3xl font-bold sm:text-4xl md:text-5xl">🌱 Mago Platform</h1>
+          <h1 className="text-3xl font-bold sm:text-4xl md:text-5xl inline-flex items-center gap-2"><LeafIcon className="w-10 h-10 sm:w-12 sm:h-12" fill="currentColor" /> Mago Platform</h1>
           <p className="mt-3 text-lg text-white/90 sm:text-xl">
             AI-Powered Agroecology Certification
           </p>
@@ -66,18 +72,20 @@ export default function DashboardPage() {
           
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 md:justify-start">
             {[
-              '🌍 12 Cooperatives',
-              '✅ 8 EUDR Compliant',
-              '🛰 Sentinel-2 Live',
-              '📋 Track 4 Agroecology'
-            ].map((stat, i) => (
+              { Icon: GlobeIcon, text: '12 Cooperatives' },
+              { Icon: CheckIcon, text: '8 EUDR Compliant' },
+              { Icon: SatelliteIcon, text: 'Sentinel-2 Live' },
+              { Icon: ClipboardIcon, text: 'Track 4 Agroecology' },
+            ].map((stat, i) => {
+              const StatIcon = stat.Icon;
+              return (
               <span
                 key={i}
-                className="rounded-full border border-[#1A7A6E] bg-[#1A7A6E]/30 px-4 py-1.5 text-sm font-medium"
+                className="rounded-full border border-[#1A7A6E] bg-[#1A7A6E]/30 px-4 py-1.5 text-sm font-medium inline-flex items-center gap-2"
               >
-                {stat}
+                <StatIcon className="w-4 h-4" /> {stat.text}
               </span>
-            ))}
+            ); })}
           </div>
         </div>
       </section>
@@ -94,7 +102,7 @@ export default function DashboardPage() {
               <span className="absolute right-4 top-4 rounded-full bg-teal-100 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-teal-800 uppercase">
                 LIVE DATA
               </span>
-              <div className="text-4xl">🗺</div>
+              <div className="text-4xl text-[#2D5A2E]"><MapIcon className="w-10 h-10" /></div>
               <h3 className="mt-3 text-lg font-bold text-gray-900">Satellite Map</h3>
               <p className="mt-2 mb-6 flex-1 text-sm text-gray-600 leading-relaxed">
                 Explore live Sentinel-2 satellite imagery, NDVI overlays, and certified farm parcels across your pilot region.
@@ -112,7 +120,7 @@ export default function DashboardPage() {
               <span className="absolute right-4 top-4 rounded-full bg-green-100 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-green-800 uppercase">
                 4 STEPS
               </span>
-              <div className="text-4xl">🌱</div>
+              <div className="text-4xl text-[#2D5A2E]"><LeafIcon className="w-10 h-10" /></div>
               <h3 className="mt-3 text-lg font-bold text-gray-900">Farmer Registration</h3>
               <p className="mt-2 mb-6 flex-1 text-sm text-gray-600 leading-relaxed">
                 Onboard new farmers through a 4-step satellite eligibility assessment and receive a digital agroecology certificate.
@@ -130,7 +138,7 @@ export default function DashboardPage() {
               <span className="absolute right-4 top-4 rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-blue-800 uppercase">
                 EUDR 2023/1115
               </span>
-              <div className="text-4xl">📋</div>
+              <div className="text-4xl text-[#2D5A2E]"><ClipboardIcon className="w-10 h-10" /></div>
               <h3 className="mt-3 text-lg font-bold text-gray-900">EUDR Compliance Center</h3>
               <p className="mt-2 mb-6 flex-1 text-sm text-gray-600 leading-relaxed">
                 Generate EU Deforestation Regulation due diligence statements with satellite evidence for every farm parcel in your cooperative.
@@ -148,7 +156,7 @@ export default function DashboardPage() {
               <span className="absolute right-4 top-4 rounded-full bg-purple-100 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-purple-800 uppercase">
                 B2B
               </span>
-              <div className="text-4xl">🛒</div>
+              <div className="text-4xl text-[#2D5A2E]"><CartIcon className="w-10 h-10" /></div>
               <h3 className="mt-3 text-lg font-bold text-gray-900">Buyer Portal</h3>
               <p className="mt-2 mb-6 flex-1 text-sm text-gray-600 leading-relaxed">
                 Verified cooperative directory for commodity buyers. Filter by EUDR status, download due diligence packages, and connect with suppliers.
@@ -170,31 +178,14 @@ export default function DashboardPage() {
               farmName="Demo Farm · KenyaCoop-B"
               overallScore={63}
               metrics={[
-                { icon: '🌳', name: 'Deforestation-Free Compliance', score: 58, unit: '/100', certified: true },
-                { icon: '🏅', name: 'Agroecology Practice Score', score: 58, unit: '/100', certified: false },
-                { icon: '🦋', name: 'Biodiversity Score', score: 66, unit: '/100', certified: true },
-                { icon: '💨', name: 'Carbon Footprint', score: 54, unit: 'tCO₂/ha', certified: false },
-                { icon: '💧', name: 'Water Footprint', score: 47, unit: 'm³/ha', certified: true },
+                { iconKey: 'deforestation', name: 'Deforestation-Free Compliance', score: 58, unit: '/100', certified: true },
+                { iconKey: 'agroecology', name: 'Agroecology Practice Score', score: 58, unit: '/100', certified: false },
+                { iconKey: 'biodiversity', name: 'Biodiversity Score', score: 66, unit: '/100', certified: true },
+                { iconKey: 'carbon', name: 'Carbon Footprint', score: 54, unit: 'tCO₂/ha', certified: false },
+                { iconKey: 'water', name: 'Water Footprint', score: 47, unit: 'm³/ha', certified: true },
               ]}
               onGenerateReport={() => window.open('/eudr', '_blank')}
             />
-          </div>
-          
-          {/* M4D Application Banner */}
-          <div className="mt-10 flex flex-col items-center justify-between gap-6 rounded-xl bg-[#0D3D35] p-6 text-white shadow-lg md:flex-row md:p-8">
-            <div>
-              <h3 className="text-xl font-bold">📅 M4D Challenge Deadline</h3>
-              <p className="mt-1 text-[#0DF5B4] font-medium">March 30, 2026 — 23 days remaining</p>
-              <p className="mt-2 text-sm text-white/80">Track 4: Agroecology · Phase 1: $10,000</p>
-            </div>
-            <a
-              href="https://oms.aws.venturewell.org/go/m4d-stage0-2025"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full whitespace-nowrap rounded-lg bg-[#0DF5B4] px-8 py-3 text-center font-bold text-[#060A08] transition-colors hover:bg-white md:w-auto"
-            >
-              Apply Now →
-            </a>
           </div>
 
         </div>
@@ -202,7 +193,7 @@ export default function DashboardPage() {
 
       {/* Simple Footer */}
       <footer className="bg-[#060A08] py-6 text-center text-xs text-gray-400">
-        <p>🌱 Mago · Powered by ESA Copernicus Sentinel-2 · M4D Open Innovation Challenge 2026</p>
+        <p className="inline-flex items-center justify-center gap-1"><LeafIcon className="w-4 h-4" /> Mago · Powered by ESA Copernicus Sentinel-2</p>
       </footer>
 
       {/* Demo Overlay Banner (triggered via GlobalNav "Demo" link → /dashboard#demo) */}
@@ -216,7 +207,9 @@ export default function DashboardPage() {
 
             {/* Demo Content */}
             <div className="flex-1 text-center md:text-left">
-              <h4 className="text-lg font-bold">{demoSteps[demoStep].title}</h4>
+              <h4 className="text-lg font-bold inline-flex items-center gap-2">
+                {(() => { const StepIcon = demoSteps[demoStep].Icon; return StepIcon ? <><StepIcon className="w-5 h-5" /> {demoSteps[demoStep].title}</> : demoSteps[demoStep].title; })()}
+              </h4>
               <p className="mt-1 text-sm text-gray-300">{demoSteps[demoStep].text}</p>
               {demoSteps[demoStep].cta && (
                 <button
@@ -234,7 +227,7 @@ export default function DashboardPage() {
                 onClick={() => setIsDemoMode(false)}
                 className="text-sm font-medium text-gray-400 hover:text-white"
               >
-                ✕ Exit Demo
+                <XIcon className="w-4 h-4 inline-block align-middle mr-1" /> Exit Demo
               </button>
               <button
                 onClick={() => {
@@ -246,7 +239,7 @@ export default function DashboardPage() {
                 }}
                 className="rounded-lg bg-[#1A7A6E] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-teal-600"
               >
-                {demoStep < demoSteps.length - 1 ? 'Next →' : 'Finish ✓'}
+                {demoStep < demoSteps.length - 1 ? 'Next →' : <><CheckIcon className="w-4 h-4 inline-block align-middle mr-1" /> Finish</>}
               </button>
             </div>
           </div>

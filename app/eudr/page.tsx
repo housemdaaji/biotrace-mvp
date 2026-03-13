@@ -7,6 +7,7 @@ import cooperativesData from '@/data/cooperatives.json';
 import { QRCodeSVG } from 'qrcode.react';
 import EUDRPanel, { type EUDRPanelFarm } from '@/components/EUDRPanel';
 import GlobalNav from '@/components/GlobalNav';
+import { MedalIcon, CheckIcon, DocumentIcon, ChartIcon, GlobeIcon, RefreshIcon, AlertIcon } from '@/components/Icons';
 
 interface FarmRecord {
   id: string;
@@ -37,10 +38,10 @@ function toPanelFarm(farm: FarmRecord, cooperativeName: string, crop?: string, c
   };
 }
 
-function getEudrBadge(apsScore: number): { label: string; className: string } {
-  if (apsScore >= 60) return { label: '✅ EUDR Compliant', className: 'bg-green-100 text-green-700' };
-  if (apsScore >= 40) return { label: '🔄 Pending Review', className: 'bg-amber-100 text-amber-700' };
-  return { label: '⚠️ Action Required', className: 'bg-red-100 text-red-700' };
+function getEudrBadge(apsScore: number): { label: string; className: string; Icon: typeof CheckIcon } {
+  if (apsScore >= 60) return { label: 'EUDR Compliant', className: 'bg-green-100 text-green-700', Icon: CheckIcon };
+  if (apsScore >= 40) return { label: 'Pending Review', className: 'bg-amber-100 text-amber-700', Icon: RefreshIcon };
+  return { label: 'Action Required', className: 'bg-red-100 text-red-700', Icon: AlertIcon };
 }
 
 function getScoreColor(apsScore: number): string {
@@ -135,15 +136,15 @@ export default function EUDRPage() {
         {/* Summary stats */}
         <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: 'Cooperatives Assessed', value: stats.cooperatives, icon: '🌍' },
-            { label: 'EUDR Compliant', value: stats.compliant, icon: '✅' },
-            { label: 'Pending Review', value: stats.pending, icon: '🔄' },
-            { label: 'Action Required', value: stats.action, icon: '⚠️' },
+            { label: 'Cooperatives Assessed', value: stats.cooperatives, Icon: GlobeIcon },
+            { label: 'EUDR Compliant', value: stats.compliant, Icon: CheckIcon },
+            { label: 'Pending Review', value: stats.pending, Icon: RefreshIcon },
+            { label: 'Action Required', value: stats.action, Icon: AlertIcon },
           ].map((s) => (
             <div key={s.label} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
               <p className="text-2xl font-bold text-[#1A7A6E]">{s.value}</p>
               <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-600">
-                <span>{s.icon}</span> {s.label}
+                <s.Icon className="w-4 h-4" /> {s.label}
               </p>
             </div>
           ))}
@@ -154,6 +155,7 @@ export default function EUDRPage() {
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {panelFarms.map((pf) => {
             const badge = getEudrBadge(pf.apsScore);
+            const BadgeIcon = badge.Icon;
             return (
               <div
                 key={pf.id}
@@ -166,8 +168,8 @@ export default function EUDRPage() {
                   <span className={`text-sm font-bold ${getScoreColor(pf.apsScore)}`}>
                     APS: {pf.apsScore}/100
                   </span>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
-                    {badge.label}
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium inline-flex items-center gap-1 ${badge.className}`}>
+                    <BadgeIcon className="w-3.5 h-3.5" /> {badge.label}
                   </span>
                 </div>
                 <button
@@ -184,8 +186,8 @@ export default function EUDRPage() {
 
         {/* Certified Farms */}
         <section className="mt-10">
-          <h2 className="text-xl font-bold text-[#2D5A2E] mb-4">
-            🏅 Certified Farms
+          <h2 className="text-xl font-bold text-[#2D5A2E] mb-4 inline-flex items-center gap-2">
+            <MedalIcon /> Certified Farms
           </h2>
 
           <div className="flex gap-3 mb-6 flex-wrap">
@@ -249,23 +251,23 @@ export default function EUDRPage() {
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">
-                        ✅ Certified
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium inline-flex items-center">
+                        <CheckIcon className="w-3.5 h-3.5" /> Certified
                       </span>
                       <div className="flex gap-2">
                         <button
                           type="button"
                           onClick={() => handleShowQR(farm)}
-                          className="text-xs bg-[#2D5A2E] text-white px-3 py-1.5 rounded hover:bg-[#4A8C35] transition-colors"
+                          className="text-xs bg-[#2D5A2E] text-white px-3 py-1.5 rounded hover:bg-[#4A8C35] transition-colors inline-flex items-center gap-1"
                         >
-                          📄 Certificate
+                          <DocumentIcon className="w-3.5 h-3.5" /> Certificate
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDownloadReport(farm)}
-                          className="text-xs border border-[#2D5A2E] text-[#2D5A2E] px-3 py-1.5 rounded hover:bg-green-50 transition-colors"
+                          className="text-xs border border-[#2D5A2E] text-[#2D5A2E] px-3 py-1.5 rounded hover:bg-green-50 transition-colors inline-flex items-center gap-1"
                         >
-                          📊 Report
+                          <ChartIcon className="w-3.5 h-3.5" /> Report
                         </button>
                       </div>
                     </div>
@@ -284,8 +286,8 @@ export default function EUDRPage() {
                 className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
               >
-                <h3 className="font-bold text-lg text-[#2D5A2E] mb-1">
-                  🏅 Agroecology Certificate
+                <h3 className="font-bold text-lg text-[#2D5A2E] mb-1 inline-flex items-center gap-2">
+                  <MedalIcon /> Agroecology Certificate
                 </h3>
                 <p className="text-sm text-gray-500 mb-4">
                   {selectedFarmForQR.name ?? selectedFarmForQR.farmer}

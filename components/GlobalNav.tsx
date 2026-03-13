@@ -4,17 +4,18 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getSession, logout } from '@/lib/auth';
+import { LeafIcon, HomeIcon, MapIcon, ClipboardIcon, CartIcon, MenuIcon } from '@/components/Icons';
 
 interface GlobalNavProps {
   activePage: 'dashboard' | 'map' | 'survey' | 'eudr' | 'buyers' | 'landing';
 }
 
 const NAV_LINKS = [
-  { label: '🏠 Dashboard', href: '/dashboard', id: 'dashboard' },
-  { label: '🗺 Map', href: '/map', id: 'map' },
-  { label: '🌱 Register', href: '/survey', id: 'survey' },
-  { label: '📋 Certification', href: '/eudr', id: 'eudr' },
-  { label: '🛒 Buyers', href: '/buyers', id: 'buyers' },
+  { label: 'Dashboard', href: '/dashboard', id: 'dashboard', Icon: HomeIcon },
+  { label: 'Map', href: '/map', id: 'map', Icon: MapIcon },
+  { label: 'Register', href: '/survey', id: 'survey', Icon: LeafIcon },
+  { label: 'Certification', href: '/eudr', id: 'eudr', Icon: ClipboardIcon },
+  { label: 'Buyers', href: '/buyers', id: 'buyers', Icon: CartIcon },
 ];
 
 export default function GlobalNav({ activePage }: GlobalNavProps) {
@@ -43,7 +44,7 @@ export default function GlobalNav({ activePage }: GlobalNavProps) {
         {/* LEFT: Logo + Nav Links */}
         <div className="flex items-center gap-6">
           <Link href="/dashboard" className="flex shrink-0 items-center gap-3">
-            <span className="font-bold text-xl tracking-tight text-white">🌱 Mago</span>
+            <span className="font-bold text-xl tracking-tight text-white inline-flex items-center gap-1.5"><LeafIcon className="w-6 h-6" fill="currentColor" /> Mago</span>
             <span className="text-base font-semibold tracking-wide text-white/70">by</span>
             <img
               src="/flahtik-logo.png"
@@ -60,12 +61,13 @@ export default function GlobalNav({ activePage }: GlobalNavProps) {
                 <Link
                   key={link.id}
                   href={link.href}
-                  className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+                  className={`rounded px-3 py-1 text-sm font-medium transition-colors inline-flex items-center gap-1.5 ${
                     isActive
                       ? 'bg-[#1A7A6E] text-white'
                       : 'text-white/80 hover:bg-[#1A7A6E]/50 hover:text-white'
                   }`}
                 >
+                  <link.Icon className="w-4 h-4" />
                   {link.label}
                 </Link>
               );
@@ -83,7 +85,7 @@ export default function GlobalNav({ activePage }: GlobalNavProps) {
           </div>
         </div>
 
-        {/* RIGHT: User + Sign out + Apply M4D + Mobile hamburger */}
+        {/* RIGHT: User + Sign out + Mobile hamburger */}
         <div className="flex items-center gap-3 ml-auto">
           {showUserBlock && (
             <div className="hidden items-center gap-2 lg:flex">
@@ -105,21 +107,13 @@ export default function GlobalNav({ activePage }: GlobalNavProps) {
               <span className="text-gray-500">|</span>
             </div>
           )}
-          <a
-            href="https://oms.aws.venturewell.org/go/m4d-stage0-2025"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 rounded-full bg-[#0DF5B4] px-4 py-1.5 text-xs font-bold text-[#060A08] transition-all hover:bg-white hover:text-[#1A7A6E]"
-          >
-            🚀 Apply M4D
-          </a>
           <button
             type="button"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded text-white hover:bg-[#1A7A6E]"
             aria-label="Toggle menu"
           >
-            ☰
+            <MenuIcon className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -130,7 +124,7 @@ export default function GlobalNav({ activePage }: GlobalNavProps) {
           <div className="flex flex-col gap-1 p-4">
             <div className="mb-2 border-b border-[#1A7A6E]/30 pb-2">
               <Link href="/dashboard" onClick={() => setIsMenuOpen(false)} className="block">
-                <span className="font-bold text-lg text-white">🌱 Mago</span>
+                <span className="font-bold text-lg text-white inline-flex items-center gap-1.5"><LeafIcon className="w-5 h-5" fill="currentColor" /> Mago</span>
               </Link>
               <div className="flex items-center gap-2 px-3 py-2 text-xs text-white/50">
                 <span>powered by</span>
@@ -149,12 +143,13 @@ export default function GlobalNav({ activePage }: GlobalNavProps) {
                   key={link.id}
                   href={link.href}
                   onClick={() => setIsMenuOpen(false)}
-                  className={`rounded px-4 py-2.5 text-sm font-medium transition-colors ${
+                  className={`rounded px-4 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 ${
                     isActive
                       ? 'bg-[#1A7A6E] text-white'
                       : 'text-white/80 hover:bg-[#1A7A6E]/50 hover:text-white'
                   }`}
                 >
+                  <link.Icon className="w-4 h-4" />
                   {link.label}
                 </Link>
               );
@@ -186,15 +181,6 @@ export default function GlobalNav({ activePage }: GlobalNavProps) {
                 </button>
               </>
             )}
-            <a
-              href="https://oms.aws.venturewell.org/go/m4d-stage0-2025"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setIsMenuOpen(false)}
-              className="mt-2 rounded-lg bg-[#0DF5B4] px-4 py-2.5 text-center text-sm font-bold text-[#060A08]"
-            >
-              🚀 Apply M4D
-            </a>
           </div>
         </div>
       )}

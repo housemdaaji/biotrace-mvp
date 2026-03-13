@@ -1,5 +1,7 @@
 'use client';
 
+import { SatelliteIcon, AlertIcon, ChevronDownIcon, PencilIcon, HashIcon, RulerIcon, MapPinIcon, MedalIcon } from '@/components/Icons';
+
 import { useEffect, useState } from 'react';
 
 export interface SentinelResult {
@@ -222,8 +224,8 @@ export default function SentinelPanel({
   return (
     <div className="absolute right-3 top-14 z-[1000] max-h-[calc(100vh-80px)] w-72 overflow-hidden overflow-y-auto rounded-xl border border-gray-100 bg-white shadow-xl">
       <div className="sticky top-0 z-10 bg-[#1A7A6E] px-4 py-3">
-        <p className="text-xs font-bold uppercase tracking-wider text-white">
-          🛰 Sentinel-2 Live Data
+        <p className="text-xs font-bold uppercase tracking-wider text-white inline-flex items-center gap-2">
+          <SatelliteIcon className="w-4 h-4" /> Sentinel-2 Live Data
         </p>
         <p className="mt-0.5 text-[10px] text-white/70">
           ESA Copernicus Open Access
@@ -279,8 +281,8 @@ export default function SentinelPanel({
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-2">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[10px] font-semibold text-emerald-700">
-                  📌 AOI Locked
+                <p className="text-[10px] font-semibold text-emerald-700 inline-flex items-center gap-1">
+                  <MapPinIcon className="w-3.5 h-3.5" /> AOI Locked
                 </p>
                 <p className="mt-0.5 font-mono text-[9px] text-emerald-600">
                   W {lockedBBox[0].toFixed(3)} S {lockedBBox[1].toFixed(3)}
@@ -311,24 +313,24 @@ export default function SentinelPanel({
               <button
                 type="button"
                 onClick={() => setInputMode('draw')}
-                className={`flex-1 py-1.5 text-[10px] font-semibold transition-colors ${
+                className={`flex-1 py-1.5 text-[10px] font-semibold transition-colors inline-flex items-center justify-center gap-1 ${
                   inputMode === 'draw'
                     ? 'bg-[#1A7A6E] text-white'
                     : 'bg-white text-gray-500 hover:bg-gray-50'
                 }`}
               >
-                ✏️ Draw on map
+                <PencilIcon className="w-3.5 h-3.5" /> Draw on map
               </button>
               <button
                 type="button"
                 onClick={() => setInputMode('coords')}
-                className={`flex-1 py-1.5 text-[10px] font-semibold transition-colors ${
+                className={`flex-1 py-1.5 text-[10px] font-semibold transition-colors inline-flex items-center justify-center gap-1 ${
                   inputMode === 'coords'
                     ? 'bg-[#1A7A6E] text-white'
                     : 'bg-white text-gray-500 hover:bg-gray-50'
                 }`}
               >
-                🔢 Enter coords
+                <HashIcon className="w-3.5 h-3.5" /> Enter coords
               </button>
             </div>
 
@@ -344,8 +346,8 @@ export default function SentinelPanel({
                 } disabled:opacity-50`}
               >
                 {isDrawing
-                  ? '✏️ Draw rectangle on map…'
-                  : '📐 Select Area on Map'}
+                  ? <><PencilIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Draw rectangle on map…</>
+                  : <><RulerIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Select Area on Map</>}
               </button>
             )}
 
@@ -394,8 +396,8 @@ export default function SentinelPanel({
                   ))}
                 </div>
                 {coordError && (
-                  <p className="rounded bg-red-50 px-2 py-1 text-[9px] text-red-500">
-                    ⚠️ {coordError}
+                  <p className="rounded bg-red-50 px-2 py-1 text-[9px] text-red-500 inline-flex items-center gap-1">
+                    <AlertIcon className="w-3.5 h-3.5 flex-shrink-0" /> {coordError}
                   </p>
                 )}
                 <button
@@ -421,8 +423,8 @@ export default function SentinelPanel({
         )}
 
         {error && (
-          <p className="rounded-lg border border-red-100 bg-red-50 px-2 py-1.5 text-[10px] text-red-600">
-            ⚠️ {error}
+          <p className="rounded-lg border border-red-100 bg-red-50 px-2 py-1.5 text-[10px] text-red-600 inline-flex items-center gap-1">
+            <AlertIcon className="w-3.5 h-3.5 flex-shrink-0" /> {error}
           </p>
         )}
 
@@ -445,7 +447,7 @@ export default function SentinelPanel({
               onClick={() => setShowAnalysis(!showAnalysis)}
               className="w-full rounded-lg border border-[#1A7A6E]/30 bg-[#f0faf9] py-2 text-[10px] font-semibold text-[#1A7A6E] transition-colors hover:bg-[#e0f5f3]"
             >
-              {showAnalysis ? '▲ Hide Analysis' : '▼ Show Analysis'}
+              {showAnalysis ? <><ChevronDownIcon className="w-3.5 h-3.5 inline-block rotate-180" /> Hide Analysis</> : <><ChevronDownIcon className="w-3.5 h-3.5 inline-block" /> Show Analysis</>}
             </button>
 
             {showAnalysis && analysisInfo && (
@@ -479,8 +481,8 @@ export default function SentinelPanel({
                 </div>
 
                 <div className="bg-amber-50 px-3 py-2">
-                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-amber-700">
-                    🏅 Certification Relevance
+                  <p className="mb-1 text-[9px] font-semibold uppercase tracking-wider text-amber-700 inline-flex items-center gap-1">
+                    <MedalIcon className="w-3.5 h-3.5" /> Certification Relevance
                   </p>
                   <p className="text-[9px] leading-relaxed text-amber-800">
                     {analysisInfo.certification}

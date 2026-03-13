@@ -9,6 +9,7 @@ import {
   getSession,
   type DemoAccount,
 } from '@/lib/auth';
+import { LeafIcon, MapIcon, GlobeIcon, ClipboardIcon } from '@/components/Icons';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -45,7 +46,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#f0faf9] to-white px-4 py-12">
       <div className="mb-8 text-center">
-        <span className="text-3xl font-bold text-[#1A7A6E]">🌱 Mago</span>
+        <span className="text-3xl font-bold text-[#1A7A6E] inline-flex items-center gap-2"><LeafIcon className="w-8 h-8" /> Mago</span>
         <p className="mt-1 text-sm text-gray-500">Cooperative Manager Portal</p>
       </div>
 
@@ -156,21 +157,21 @@ export default function LoginPage() {
           <div className="flex gap-3">
             <Link
               href="/map"
-              className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-xs font-medium text-gray-600 transition hover:border-[#1A7A6E] hover:text-[#1A7A6E]"
+              className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-xs font-medium text-gray-600 transition hover:border-[#1A7A6E] hover:text-[#1A7A6E] inline-flex items-center justify-center gap-1"
             >
-              🗺 View Map
+              <MapIcon className="w-4 h-4" /> View Map
             </Link>
             <Link
               href="/buyers"
-              className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-xs font-medium text-gray-600 transition hover:border-[#1A7A6E] hover:text-[#1A7A6E]"
+              className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-xs font-medium text-gray-600 transition hover:border-[#1A7A6E] hover:text-[#1A7A6E] inline-flex items-center justify-center gap-1"
             >
-              🌍 Buyer Portal
+              <GlobeIcon className="w-4 h-4" /> Buyer Portal
             </Link>
             <Link
               href="/survey"
-              className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-xs font-medium text-gray-600 transition hover:border-[#1A7A6E] hover:text-[#1A7A6E]"
+              className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-xs font-medium text-gray-600 transition hover:border-[#1A7A6E] hover:text-[#1A7A6E] inline-flex items-center justify-center gap-1"
             >
-              📋 Survey
+              <ClipboardIcon className="w-4 h-4" /> Survey
             </Link>
           </div>
         </div>
