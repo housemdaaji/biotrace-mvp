@@ -25,6 +25,8 @@ export default function MapPage() {
   const [pendingBBox, setPendingBBox] = useState<[number, number, number, number] | null>(null);
   const [sentinelResult, setSentinelResult] = useState<SentinelResult | null>(null);
   const [isFarmSelected, setIsFarmSelected] = useState(false);
+  const [sentinelLoading, setSentinelLoading] = useState(false);
+  const [sentinelError, setSentinelError] = useState('');
 
   useEffect(() => {
     try {
@@ -36,6 +38,52 @@ export default function MapPage() {
       // ignore invalid stored data
     }
   }, [staticFarms]);
+
+  async function handleAnalyzeArea({
+    index,
+    dateFrom,
+    dateTo,
+    bbox,
+  }: {
+    index: string;
+    dateFrom: string;
+    dateTo: string;
+    bbox: number[] | null;
+  }) {
+    if (!bbox) return;
+    setSentinelLoading(true);
+    setSentinelError('');
+    setSentinelResult(null);
+    try {
+      const res = await fetch('/api/sentinel/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bbox,
+          index,
+          dateFrom,
+          dateTo,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      const result: SentinelResult = {
+        image: data.image,
+        bbox: bbox as [number, number, number, number],
+        index,
+        dateFrom,
+        dateTo,
+      };
+      setSentinelResult(result);
+    } catch (e: unknown) {
+      setSentinelError(e instanceof Error ? e.message : 'Fetch failed');
+      setSentinelResult(null);
+    } finally {
+      setSentinelLoading(false);
+    }
+  }
 
   return (
     <main className="bg-white">
@@ -51,6 +99,7 @@ export default function MapPage() {
           onBBoxDrawn={setPendingBBox}
           sentinelResult={sentinelResult}
           onFarmSelected={setIsFarmSelected}
+          onAnalyzeArea={handleAnalyzeArea}
         />
 
       </div>

@@ -174,6 +174,7 @@ interface MapViewProps {
   onBBoxDrawn?: (bbox: [number, number, number, number]) => void;
   sentinelResult?: SentinelResult | null;
   onFarmSelected?: (hasFarm: boolean) => void;
+  onAnalyzeArea?: (params: { index: string; dateFrom: string; dateTo: string; bbox: number[] | null }) => void;
 }
 
 const MONTH_COUNT = 6;
@@ -306,6 +307,7 @@ export default function MapView({
   onBBoxDrawn,
   sentinelResult,
   onFarmSelected,
+  onAnalyzeArea,
 }: MapViewProps) {
   const [selectedFarm, setSelectedFarm] = useState<Farm | null>(null);
   const [basemap, setBasemap] = useState<'street' | 'satellite'>('street');
@@ -917,7 +919,17 @@ export default function MapView({
           {/* Sentinel-2 draw layer and image overlay */}
           <MapDrawAndOverlay
             isDrawing={isDrawing}
-            onBBoxDrawn={onBBoxDrawn}
+            onBBoxDrawn={(bbox) => {
+              onBBoxDrawn?.(bbox);
+              if (onAnalyzeArea) {
+                onAnalyzeArea({
+                  index: selectedIndex,
+                  dateFrom,
+                  dateTo,
+                  bbox,
+                });
+              }
+            }}
             sentinelResult={sentinelResult}
           />
         </MapContainer>
@@ -1090,7 +1102,10 @@ export default function MapView({
 
           <button
             type="button"
-            onClick={() => onDrawMode && onDrawMode(!isDrawing)}
+            onClick={() => {
+              if (onDrawMode) onDrawMode(!isDrawing);
+              // If already have a bbox drawn (isDrawing is finishing), trigger analysis
+            }}
             className="mt-2 w-full rounded-lg bg-[#1A7A6E] py-2 text-xs font-semibold text-white transition-colors hover:bg-[#15635A]"
           >
             Select Area on Map
