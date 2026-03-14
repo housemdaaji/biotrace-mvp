@@ -23,6 +23,7 @@ import {
   PauseIcon,
 } from '@/components/Icons';
 import type { MetricIconKey } from '@/components/Icons';
+import CertificateModal, { type CertificateData } from '@/components/CertificateModal';
 
 import 'leaflet-draw/dist/leaflet.draw.css';
 
@@ -108,6 +109,38 @@ const INDICES = [
   { id: 'NBR', label: 'Burn/Recovery' },
 ];
 
+/** Deterministic mock value for a cell (0–1). bbox: [west, south, east, north]. */
+function mockCellValue(lat: number, lng: number, _monthIndex: number): number {
+  const t = Math.sin(lat * 12.9898 + lng * 78.233) * 43758.5453;
+  return t - Math.floor(t);
+}
+
+/** Map 0–1 to index-typical range and return color. */
+function getIndexColor(indexId: string, normalized: number): string {
+  const n = Math.max(0, Math.min(1, normalized));
+  switch (indexId) {
+    case 'NDVI':
+      if (n < 0.33) return '#92400e';
+      if (n < 0.66) return '#fde047';
+      return '#15803d';
+    case 'NDWI':
+      if (n < 0.5) return '#92400e';
+      return '#1d4ed8';
+    case 'NDMI':
+      if (n < 0.5) return '#ea580c';
+      return '#15803d';
+    case 'BSI':
+      if (n < 0.5) return '#15803d';
+      return '#dc2626';
+    case 'EVI':
+    case 'NBR':
+      if (n < 0.5) return '#dc2626';
+      return '#15803d';
+    default:
+      return n < 0.5 ? '#6b7280' : '#15803d';
+  }
+}
+
 const deforestationFlagIcon = divIcon({
   className: 'deforestation-flag',
   html: `<div style="width:28px;height:28px;border-radius:50%;background:#dc2626;color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:bold;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.3);">!</div>`,
@@ -180,14 +213,26 @@ interface MapViewProps {
 const MONTH_COUNT = 6;
 const LAST_MONTH_INDEX = MONTH_COUNT - 1;
 
+const DRAW_CREATED_EVENT = 'draw:created';
+
+const drawnItemsRef = { current: null as unknown as { clearLayers: () => void; addLayer: (l: unknown) => void } | null };
+
 function MapDrawAndOverlay({
   isDrawing,
   onBBoxDrawn,
   sentinelResult,
+  drawnBBox,
+  selectedIndex,
+  monthIndex,
+  overlayOpacity,
 }: {
   isDrawing?: boolean;
   onBBoxDrawn?: (bbox: [number, number, number, number]) => void;
   sentinelResult?: SentinelResult | null;
+  drawnBBox?: [number, number, number, number] | null;
+  selectedIndex?: string;
+  monthIndex?: number;
+  overlayOpacity?: number;
 }) {
   const map = useMap();
 
@@ -197,9 +242,8 @@ function MapDrawAndOverlay({
     require('leaflet-draw');
     const drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
+    drawnItemsRef.current = drawnItems;
     const handleDrawCreated = (e: { layer: L.Layer & { getBounds: () => L.LatLngBounds } }) => {
-      drawnItems.clearLayers();
-      drawnItems.addLayer(e.layer);
       const b = e.layer.getBounds();
       const bbox: [number, number, number, number] = [
         b.getWest(),
@@ -209,29 +253,47 @@ function MapDrawAndOverlay({
       ];
       onBBoxDrawn?.(bbox);
     };
-    map.on((L as unknown as { Draw: { Event: { CREATED: string } } }).Draw.Event.CREATED, handleDrawCreated);
+    map.on(DRAW_CREATED_EVENT, handleDrawCreated);
     return () => {
-      map.off((L as unknown as { Draw: { Event: { CREATED: string } } }).Draw.Event.CREATED, handleDrawCreated);
+      map.off(DRAW_CREATED_EVENT, handleDrawCreated);
       map.removeLayer(drawnItems);
       drawnItems.clearLayers();
+      drawnItemsRef.current = null;
     };
   }, [map, onBBoxDrawn]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !drawnBBox || drawnBBox.length !== 4) return;
+    const L = require('leaflet');
+    const group = drawnItemsRef.current;
+    if (!group) return;
+    group.clearLayers();
+    const [west, south, east, north] = drawnBBox;
+    const bounds: L.LatLngBoundsExpression = [
+      [south, west],
+      [north, east],
+    ];
+    const rect = L.rectangle(bounds, {
+      color: '#1A7A6E',
+      weight: 2,
+      fillOpacity: 0.1,
+    });
+    group.addLayer(rect);
+  }, [drawnBBox]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !map) return;
     if (!isDrawing) return;
     const L = require('leaflet');
     require('leaflet-draw');
-    const drawHandler = new (L as unknown as { Draw: { Rectangle: new (map: L.Map, options: object) => { enable: () => void; disable: () => void } } }).Draw.Rectangle(
-      map,
-      {
-        shapeOptions: {
-          color: '#1A7A6E',
-          weight: 2,
-          fillOpacity: 0.1,
-        },
-      }
-    );
+    const Draw = L.Draw as unknown as { Rectangle: new (map: L.Map, options: object) => { enable: () => void; disable: () => void } };
+    const drawHandler = new Draw.Rectangle(map, {
+      shapeOptions: {
+        color: '#1A7A6E',
+        weight: 2,
+        fillOpacity: 0.1,
+      },
+    });
     drawHandler.enable();
     return () => {
       try {
@@ -244,13 +306,13 @@ function MapDrawAndOverlay({
 
   useEffect(() => {
     if (typeof window === 'undefined' || !map) return;
-    map.eachLayer((layer: L.Layer & { _isSentinelOverlay?: boolean }) => {
-      if (layer._isSentinelOverlay) {
+    const L = require('leaflet');
+    map.eachLayer((layer: L.Layer & { _isSentinelOverlay?: boolean; _isGridOverlay?: boolean }) => {
+      if (layer._isSentinelOverlay || layer._isGridOverlay) {
         map.removeLayer(layer);
       }
     });
-    if (sentinelResult) {
-      const L = require('leaflet');
+    if (sentinelResult?.image) {
       const bounds: L.LatLngBoundsExpression = [
         [sentinelResult.bbox[1], sentinelResult.bbox[0]],
         [sentinelResult.bbox[3], sentinelResult.bbox[2]],
@@ -260,11 +322,47 @@ function MapDrawAndOverlay({
       }) as L.ImageOverlay & { _isSentinelOverlay?: boolean };
       overlay._isSentinelOverlay = true;
       overlay.addTo(map);
-      map.fitBounds(bounds);
     }
-  }, [map, sentinelResult]);
+  }, [map, sentinelResult, drawnBBox]);
 
-  return null;
+  if (!drawnBBox || drawnBBox.length !== 4) return null;
+  const [west, south, east, north] = drawnBBox;
+  const rows = 32;
+  const cols = 32;
+  const opacity = overlayOpacity ?? 0.35;
+  const cells: Array<{ bounds: LatLngBoundsExpression; color: string }> = [];
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const lat = south + (north - south) * (row + 0.5) / rows;
+      const lng = west + (east - west) * (col + 0.5) / cols;
+      const raw = mockCellValue(lat, lng, monthIndex ?? 0);
+      const color = getIndexColor(selectedIndex ?? 'NDVI', raw);
+      const s = south + (north - south) * row / rows;
+      const n = south + (north - south) * (row + 1) / rows;
+      const w = west + (east - west) * col / cols;
+      const e = west + (east - west) * (col + 1) / cols;
+      cells.push({
+        bounds: [[s, w], [n, e]] as LatLngBoundsExpression,
+        color,
+      });
+    }
+  }
+  return (
+    <>
+      {cells.map((cell, i) => (
+        <Rectangle
+          key={`grid-${i}`}
+          bounds={cell.bounds}
+          pathOptions={{
+            fillColor: cell.color,
+            fillOpacity: opacity,
+            color: cell.color,
+            weight: 0.2,
+          }}
+        />
+      ))}
+    </>
+  );
 }
 
 function CollapsibleSection({
@@ -322,6 +420,23 @@ export default function MapView({
   const [dateFrom, setDateFrom] = useState('2024-10-01');
   const [dateTo, setDateTo] = useState('2025-03-01');
   const [inputMode, setInputMode] = useState<'draw' | 'coords'>('draw');
+  const [drawnBBox, setDrawnBBox] = useState<[number, number, number, number] | null>(null);
+  const [coordInputs, setCoordInputs] = useState({ north: '', south: '', east: '', west: '' });
+  const [coordError, setCoordError] = useState('');
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{
+    mean: number;
+    min: number;
+    max: number;
+    std: number;
+    coverage: number;
+    score: number;
+    interpretation: string;
+    certification: string;
+    eudrSignal: string;
+    recommendations: string[];
+  } | null>(null);
+  const [certificateOpen, setCertificateOpen] = useState(false);
 
   const months = ndviTemporalData.months;
   const activeSnapshot = useMemo(
@@ -424,6 +539,105 @@ export default function MapView({
 
   const handleIndexChange = (id: string) => {
     setSelectedIndex(id);
+  };
+
+  useEffect(() => {
+    if (!drawnBBox || drawnBBox.length !== 4) {
+      setAnalysisResult(null);
+      return;
+    }
+    setAnalysisLoading(true);
+    const t = setTimeout(() => {
+      const [west, south, east, north] = drawnBBox;
+      const rows = 32;
+      const cols = 32;
+      const values: number[] = [];
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const lat = south + (north - south) * (row + 0.5) / rows;
+          const lng = west + (east - west) * (col + 0.5) / cols;
+          values.push(mockCellValue(lat, lng, monthIndex));
+        }
+      }
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length;
+      const std = Math.sqrt(variance);
+      const coverage = 100;
+      const isBSI = selectedIndex === 'BSI';
+      const rawScore = isBSI ? 1 - mean : mean;
+      const score = Math.round(Math.max(0, Math.min(100, rawScore * 100)));
+      let interpretation = '';
+      if (selectedIndex === 'NDVI' || selectedIndex === 'EVI' || selectedIndex === 'NBR') {
+        interpretation = mean > 0.6 ? 'Dense healthy vegetation.' : mean > 0.35 ? 'Moderate vegetation cover.' : 'Low vegetation or bare soil.';
+      } else if (selectedIndex === 'NDWI') {
+        interpretation = mean > 0.3 ? 'Adequate surface moisture.' : mean > 0 ? 'Moderate moisture.' : 'Dry or drought stress.';
+      } else if (selectedIndex === 'NDMI') {
+        interpretation = mean > 0.2 ? 'Sufficient soil moisture.' : mean > 0 ? 'Moderate moisture retention.' : 'Dry soil.';
+      } else if (selectedIndex === 'BSI') {
+        interpretation = mean < 0.2 ? 'Good ground cover.' : mean < 0.5 ? 'Moderate soil exposure.' : 'Bare soil or erosion risk.';
+      } else {
+        interpretation = mean > 0.5 ? 'Healthy signal.' : 'Low or stressed.';
+      }
+      const certification = score >= 50
+        ? 'Score meets Mago agroecology certification threshold for this index.'
+        : 'Improve practices to reach certification threshold (score ≥50).';
+      const isVegetation = selectedIndex === 'NDVI' || selectedIndex === 'EVI';
+      const eudrSignal = isVegetation
+        ? (mean > 0.35 ? 'Deforestation-free indicators positive.' : 'Vegetation loss signals detected.')
+        : 'N/A for this index.';
+      const recommendations: string[] = [];
+      if (selectedIndex === 'NDVI' || selectedIndex === 'EVI') {
+        if (mean < 0.35) recommendations.push('Increase canopy density through intercropping or cover crops.');
+        if (mean < 0.6) recommendations.push('Monitor temporal trend; declining NDVI may trigger Mago alert.');
+        recommendations.push('Maintain NDVI >0.4 for agroforestry certification tier.');
+      } else if (selectedIndex === 'NDWI') {
+        if (mean < 0) recommendations.push('Address irrigation or water retention to reduce drought stress.');
+        recommendations.push('Track NDWI over growing season for water management score.');
+      } else if (selectedIndex === 'BSI') {
+        if (mean > 0.2) recommendations.push('Reduce soil exposure with cover crops or residue.');
+        recommendations.push('Keep BSI <0.2 between growing seasons for Soil Protection score.');
+      } else {
+        recommendations.push('Use index-specific practices to improve score.');
+      }
+      setAnalysisResult({
+        mean, min, max, std, coverage, score, interpretation, certification, eudrSignal,
+        recommendations: recommendations.slice(0, 3),
+      });
+      setAnalysisLoading(false);
+    }, 900);
+    return () => clearTimeout(t);
+  }, [drawnBBox, selectedIndex, monthIndex]);
+
+  const handleApplyCoords = () => {
+    const n = parseFloat(coordInputs.north);
+    const s = parseFloat(coordInputs.south);
+    const e = parseFloat(coordInputs.east);
+    const w = parseFloat(coordInputs.west);
+    if ([n, s, e, w].some(Number.isNaN)) {
+      setCoordError('All four fields are required.');
+      return;
+    }
+    if (n <= s) {
+      setCoordError('North must be greater than South.');
+      return;
+    }
+    if (e <= w) {
+      setCoordError('East must be greater than West.');
+      return;
+    }
+    if (Math.abs(n - s) > 5 || Math.abs(e - w) > 5) {
+      setCoordError('Area too large — keep under 5° × 5°.');
+      return;
+    }
+    setCoordError('');
+    const bbox: [number, number, number, number] = [w, s, e, n];
+    setDrawnBBox(bbox);
+    onBBoxDrawn?.(bbox);
+    if (onAnalyzeArea) {
+      onAnalyzeArea({ index: selectedIndex, dateFrom, dateTo, bbox });
+    }
   };
 
   const handleZoomToCooperative = (coopId: string) => {
@@ -926,6 +1140,7 @@ export default function MapView({
           <MapDrawAndOverlay
             isDrawing={isDrawing}
             onBBoxDrawn={(bbox) => {
+              setDrawnBBox(bbox);
               onBBoxDrawn?.(bbox);
               if (onAnalyzeArea) {
                 onAnalyzeArea({
@@ -937,6 +1152,10 @@ export default function MapView({
               }
             }}
             sentinelResult={sentinelResult}
+            drawnBBox={drawnBBox}
+            selectedIndex={selectedIndex}
+            monthIndex={monthIndex}
+            overlayOpacity={ndviOpacity}
           />
         </MapContainer>
       </div>
@@ -1081,7 +1300,7 @@ export default function MapView({
             </div>
           </div>
 
-          <div className="flex overflow-hidden rounded-lg border border-gray-200 mt-3">
+          <div className="flex rounded-lg border border-gray-200 mt-3">
             <button
               type="button"
               onClick={() => setInputMode('draw')}
@@ -1106,16 +1325,93 @@ export default function MapView({
             </button>
           </div>
 
+          {inputMode === 'coords' && (
+            <div className="space-y-2 mt-2">
+              <div className="grid grid-cols-2 gap-2">
+                {(['north', 'south', 'east', 'west'] as const).map((dir) => (
+                  <div key={dir}>
+                    <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+                      {dir} {dir === 'east' || dir === 'west' ? '(lng)' : '(lat)'}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      placeholder={
+                        dir === 'north' ? '0.12' :
+                        dir === 'south' ? '-0.02' :
+                        dir === 'east' ? '37.73' : '37.55'
+                      }
+                      value={coordInputs[dir]}
+                      onChange={(e) => setCoordInputs((c) => ({ ...c, [dir]: e.target.value }))}
+                      className="w-full bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:border-[#4A8C35]"
+                    />
+                  </div>
+                ))}
+              </div>
+              {coordError && <p className="text-[11px] text-red-500">{coordError}</p>}
+              <button
+                type="button"
+                onClick={handleApplyCoords}
+                className="w-full py-2 rounded-lg text-sm font-semibold bg-[#2D5A2E] hover:bg-[#4A8C35] text-white transition-all"
+              >
+                Apply Coordinates
+              </button>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => {
               if (onDrawMode) onDrawMode(!isDrawing);
-              // If already have a bbox drawn (isDrawing is finishing), trigger analysis
             }}
             className="mt-2 w-full rounded-lg bg-[#1A7A6E] py-2 text-xs font-semibold text-white transition-colors hover:bg-[#15635A]"
           >
             Select Area on Map
           </button>
+
+          {/* Analysis panel (after area selected) */}
+          {drawnBBox && (
+            <div className="border-t border-gray-100 pt-4 mt-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Area Analysis</p>
+              {analysisLoading ? (
+                <div className="flex items-center justify-center gap-2 py-6 text-gray-500">
+                  <RefreshIcon className="w-4 h-4 animate-spin" />
+                  <span className="text-xs">Processing…</span>
+                </div>
+              ) : analysisResult ? (
+                <div className="space-y-3 text-xs">
+                  <div className="rounded-lg bg-green-50 border border-green-100 p-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wide">Agroecology Score</p>
+                    <p className="text-2xl font-bold text-[#2D5A2E]">{analysisResult.score}<span className="text-sm font-normal text-gray-500">/100</span></p>
+                  </div>
+                  <div className="rounded border border-gray-100 p-2 space-y-1">
+                    <p className="font-semibold text-gray-700">Stats</p>
+                    <p>Mean: {analysisResult.mean.toFixed(3)} · Std: {analysisResult.std.toFixed(3)}</p>
+                    <p>Min: {analysisResult.min.toFixed(3)} · Max: {analysisResult.max.toFixed(3)}</p>
+                    <p>Coverage: {analysisResult.coverage}%</p>
+                  </div>
+                  <p className="text-gray-700"><span className="font-medium">Interpretation:</span> {analysisResult.interpretation}</p>
+                  <p className="text-gray-600"><span className="font-medium">Certification:</span> {analysisResult.certification}</p>
+                  <p className="text-gray-600"><span className="font-medium">EUDR:</span> {analysisResult.eudrSignal}</p>
+                  <div>
+                    <p className="font-medium text-gray-700 mb-1">Recommendations</p>
+                    <ul className="list-disc list-inside space-y-0.5 text-gray-600">
+                      {analysisResult.recommendations.map((rec, i) => (
+                        <li key={i}>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCertificateOpen(true)}
+                    className="mt-3 w-full rounded-lg bg-mago-forest py-2 text-xs font-semibold text-white transition-colors hover:bg-mago-leaf print:hidden"
+                  >
+                    View Certificate
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
 
           {/* Satellite Timeline */}
           <div className="border-t border-gray-100 pt-4">
@@ -1158,6 +1454,32 @@ export default function MapView({
           </div>
         </div>
       </aside>
+
+      <CertificateModal
+        open={certificateOpen}
+        onClose={() => setCertificateOpen(false)}
+        data={
+          drawnBBox && analysisResult
+            ? ({
+                bbox: drawnBBox,
+                score: analysisResult.score,
+                mean: analysisResult.mean,
+                interpretation: analysisResult.interpretation,
+                eudrSignal: analysisResult.eudrSignal,
+                recommendations: analysisResult.recommendations,
+                selectedIndex,
+                selectedMonth: months[monthIndex] ?? '',
+                indexLabel: INDICES.find((i) => i.id === selectedIndex)?.label ?? selectedIndex,
+                pilotRegion: 'Meru North, Kenya',
+                analysisDate: new Date().toLocaleDateString('en-GB', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                }),
+              } satisfies CertificateData)
+            : null
+        }
+      />
     </div>
   );
 }
