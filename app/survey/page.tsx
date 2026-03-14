@@ -372,7 +372,7 @@ export default function SurveyPage() {
                     }`}
                   >
                     <p className={`text-xs font-bold inline-flex items-center gap-1 ${allGreen ? 'text-green-700' : hasRed ? 'text-red-700' : 'text-amber-700'}`}>
-                      {allGreen ? <><CheckIcon className="w-3.5 h-3.5" /> EUDR Compliant</> : hasRed ? <><AlertIcon className="w-3.5 h-3.5" /> EUDR Risk Detected</> : <><RefreshIcon className="w-3.5 h-3.5" /> EUDR Pending</>}
+                      {allGreen ? <><CheckIcon className="w-3.5 h-3.5" /> Certified</> : hasRed ? <><AlertIcon className="w-3.5 h-3.5" /> EUDR Risk Detected</> : <><RefreshIcon className="w-3.5 h-3.5" /> EUDR Pending</>}
                     </p>
                     <p className={`text-[10px] ${allGreen ? 'text-green-600' : hasRed ? 'text-red-600' : 'text-amber-600'}`}>
                       {allGreen ? 'Deforestation-free verified · Ready for EU market' : hasRed ? 'Action required before certification' : 'Improvements needed · Re-assess in 90 days'}

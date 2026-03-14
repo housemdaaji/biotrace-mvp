@@ -39,7 +39,7 @@ function toPanelFarm(farm: FarmRecord, cooperativeName: string, crop?: string, c
 }
 
 function getEudrBadge(apsScore: number): { label: string; className: string; Icon: typeof CheckIcon } {
-  if (apsScore >= 60) return { label: 'EUDR Compliant', className: 'bg-green-100 text-green-700', Icon: CheckIcon };
+  if (apsScore >= 60) return { label: 'Certified', className: 'bg-green-100 text-green-700', Icon: CheckIcon };
   if (apsScore >= 40) return { label: 'Pending Review', className: 'bg-amber-100 text-amber-700', Icon: RefreshIcon };
   return { label: 'Action Required', className: 'bg-red-100 text-red-700', Icon: AlertIcon };
 }
@@ -129,15 +129,12 @@ export default function EUDRPage() {
         <p className="mt-1 text-sm text-gray-600">
           EU Deforestation Regulation 2023/1115 — Due Diligence Dashboard
         </p>
-        <div className="mt-4 rounded-lg bg-[#1A7A6E] px-4 py-3 text-sm text-white">
-          The EU Deforestation Regulation requires all operators placing products on the EU market to conduct due diligence to ensure their products are deforestation-free and legally produced. Mago automates this process using ESA Copernicus Sentinel-2 satellite data.
-        </div>
 
         {/* Summary stats */}
         <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
             { label: 'Cooperatives Assessed', value: stats.cooperatives, Icon: GlobeIcon },
-            { label: 'EUDR Compliant', value: stats.compliant, Icon: CheckIcon },
+            { label: 'Certified Farms', value: stats.compliant, Icon: CheckIcon },
             { label: 'Pending Review', value: stats.pending, Icon: RefreshIcon },
             { label: 'Action Required', value: stats.action, Icon: AlertIcon },
           ].map((s) => (
@@ -319,6 +316,10 @@ export default function EUDRPage() {
             </div>
           )}
         </section>
+
+        <div className="mt-10 rounded-lg bg-[#1A7A6E] px-4 py-3 text-sm text-white">
+          The EU Deforestation Regulation requires all operators placing products on the EU market to conduct due diligence to ensure their products are deforestation-free and legally produced. Mago automates this process using ESA Copernicus Sentinel-2 satellite data.
+        </div>
       </div>
 
       {/* Modal */}

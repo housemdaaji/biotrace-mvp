@@ -19,7 +19,7 @@ interface EUDRPanelProps {
 }
 
 function getEudrStatus(apsScore: number): { label: string; bg: string } {
-  if (apsScore >= 60) return { label: 'EUDR Compliant', bg: 'bg-green-500' };
+  if (apsScore >= 60) return { label: 'Certified', bg: 'bg-green-500' };
   if (apsScore >= 40) return { label: 'EUDR Pending', bg: 'bg-amber-500' };
   return { label: 'EUDR Risk Detected', bg: 'bg-red-500' };
 }

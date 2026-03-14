@@ -23,7 +23,7 @@ export default function LandingPage() {
             Satellite-Verified Agroecology Certification
           </h1>
           <p className="mx-auto mt-6 max-w-3xl text-xl text-white/80 sm:mx-0">
-            Mago connects smallholder cooperatives to ESG buyers through AI-powered satellite
+            Mago connects smallholder cooperatives to ESG buyers through AI-powered satellite APS
             scoring, EUDR compliance, and QR-verified digital certificates.
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-4 sm:justify-start">
@@ -243,9 +243,9 @@ export default function LandingPage() {
               </p>
             </div>
             <div>
-              <p className="text-5xl font-bold text-[#0DF5B4]">EUDR Ready</p>
+              <p className="text-5xl font-bold text-[#0DF5B4]">APS Certification System</p>
               <p className="mt-2 text-sm uppercase tracking-wide text-white/70">
-                EU Deforestation Regulation compliant
+                EU Regulation Compliant
               </p>
             </div>
           </div>

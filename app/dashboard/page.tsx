@@ -73,7 +73,7 @@ export default function DashboardPage() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 md:justify-start">
             {[
               { Icon: GlobeIcon, text: '12 Cooperatives' },
-              { Icon: CheckIcon, text: '8 EUDR Compliant' },
+              { Icon: CheckIcon, text: '8 Certified' },
               { Icon: SatelliteIcon, text: 'Sentinel-2 Live' },
               { Icon: ClipboardIcon, text: 'Track 4 Agroecology' },
             ].map((stat, i) => {
