@@ -2,9 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Zoom control: push below Street/Satellite toggle (stacked in MapView) */
+/* Top-left Leaflet controls: move container down so zoom is below Street/Satellite toggle */
+.leaflet-top.leaflet-left {
+  top: 80px !important;
+  left: 10px !important;
+}
+
 .leaflet-control-zoom {
-  margin-top: 3rem;
+  margin-top: 0 !important;
+  margin-left: 0 !important;
 }
 
 /* Pulsing border for deforestation-risk parcels on map */
