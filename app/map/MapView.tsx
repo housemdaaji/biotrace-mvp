@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, GeoJSON, Rectangle, Marker, Tooltip, CircleMarker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, Rectangle, Marker, Tooltip, CircleMarker, useMap, ZoomControl } from 'react-leaflet';
 import { divIcon } from 'leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
 import type { Farm, Cooperative } from './types';
@@ -848,6 +848,7 @@ export default function MapView({
           ref={mapRef}
           center={CENTER}
           zoom={ZOOM}
+          zoomControl={false}
           className="h-full w-full"
           style={{ height: '100%', width: '100%', background: '#f1f5f9' }}
         >
@@ -861,30 +862,35 @@ export default function MapView({
             }
           />
 
-          {/* Basemap toggle */}
-          <div className="absolute z-[1000] flex gap-1" style={{ top: '10px', left: '10px' }}>
-            <button
-              type="button"
-              onClick={() => setBasemap('street')}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors inline-flex items-center ${
-                basemap === 'street'
-                  ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
-                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <MapIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Street
-            </button>
-            <button
-              type="button"
-              onClick={() => setBasemap('satellite')}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors inline-flex items-center ${
-                basemap === 'satellite'
-                  ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
-                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <SatelliteIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Satellite
-            </button>
+          {/* Top-left: Street/Satellite toggle + zoom controls (stacked) */}
+          <div className="absolute z-[1000] flex flex-col" style={{ top: '10px', left: '10px' }}>
+            <div className="flex gap-1">
+              <button
+                type="button"
+                onClick={() => setBasemap('street')}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors inline-flex items-center ${
+                  basemap === 'street'
+                    ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <MapIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Street
+              </button>
+              <button
+                type="button"
+                onClick={() => setBasemap('satellite')}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-md transition-colors inline-flex items-center ${
+                  basemap === 'satellite'
+                    ? 'border-[#1A7A6E] bg-[#1A7A6E] text-white'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <SatelliteIcon className="w-3.5 h-3.5 inline-block align-middle mr-1" /> Satellite
+              </button>
+            </div>
+            <div className="mt-3">
+              <ZoomControl />
+            </div>
           </div>
 
           {/* Farm parcels as CircleMarkers */}
