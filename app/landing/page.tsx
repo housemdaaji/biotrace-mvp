@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import GlobalNav from '@/components/GlobalNav';
-import { LeafIcon, TrendingDownIcon, SearchIcon, SatelliteIcon, ClipboardIcon, TrophyIcon, CpuIcon, ChartIcon } from '@/components/Icons';
+import { LeafIcon, TrendingDownIcon, SearchIcon, SatelliteIcon, ClipboardIcon, TrophyIcon, CpuIcon, ChartIcon, ShieldCheckIcon, QrCodeIcon } from '@/components/Icons';
 
 export default function LandingPage() {
   return (
@@ -41,6 +41,102 @@ export default function LandingPage() {
             >
               Learn About FLAHTIK →
             </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Section — ABOUT (first content section) */}
+      <section className="bg-white px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid gap-10 md:grid-cols-2 md:items-center">
+            <div>
+              <h2 className="text-3xl font-bold text-[#0D3D35]">
+                Built for the Field. Built for the Planet.
+              </h2>
+              <p className="mt-4 text-lg font-medium text-gray-600">
+                Flahtik LLC was founded in 2019 with one conviction — the gap between what the Earth is telling us and what decisions get made is a problem worth solving.
+              </p>
+              <p className="mt-4 text-gray-600 leading-relaxed">
+                We started in Tunisia because the region&apos;s challenges are the world&apos;s challenges: water scarcity, desertification, food security, and sustainable growth in arid environments. Today Mago brings satellite-verified agroecology certification to cooperatives across East Africa and beyond — turning compliance pressure into market opportunity for smallholder farmers.
+              </p>
+            </div>
+            <div className="relative flex justify-center md:justify-end">
+              <img
+                src="/images/hands-earth.png"
+                alt="Hands and Earth — sustainable agriculture"
+                className="max-h-[360px] w-auto rounded-lg object-cover shadow-md"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Section — WHAT MAGO DOES */}
+      <section className="bg-[#FCFEFC] px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="text-center text-3xl font-bold text-[#0D3D35] mb-12">
+            What Mago Does
+          </h2>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2D5A2E]/10 text-[#2D5A2E]">
+                <SatelliteIcon className="w-6 h-6" />
+              </div>
+              <h3 className="mt-4 text-lg font-bold text-gray-900">Satellite-Verified Scoring</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Sentinel-2 imagery processed into Agroecological Practice Scores for every farm parcel — no manual audits required.
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2D5A2E]/10 text-[#2D5A2E]">
+                <ShieldCheckIcon className="w-6 h-6" />
+              </div>
+              <h3 className="mt-4 text-lg font-bold text-gray-900">EUDR & ESG Compliance</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Deforestation-free verification and ESG-ready sustainability reports that meet EU regulatory requirements out of the box.
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2D5A2E]/10 text-[#2D5A2E]">
+                <QrCodeIcon className="w-6 h-6" />
+              </div>
+              <h3 className="mt-4 text-lg font-bold text-gray-900">QR Traceability Certificates</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                Every certified farm gets a digital certificate with a scannable QR code linking buyers to verified satellite data.
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2D5A2E]/10 text-[#2D5A2E]">
+                <CpuIcon className="w-6 h-6" />
+              </div>
+              <h3 className="mt-4 text-lg font-bold text-gray-900">AI Farming Coach</h3>
+              <p className="mt-2 text-sm text-gray-600">
+                In-app guidance helps farmers improve their agroecological score step by step — from Level 1 tips to expert SME coaching.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Section — PILOT REGIONS (Where Mago Operates) */}
+      <section className="bg-white px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="text-center text-3xl font-bold text-[#0D3D35] mb-10">
+            Where Mago Operates
+          </h2>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-bold text-[#0D3D35]">East Africa</h3>
+              <p className="mt-2 text-sm font-medium text-gray-600">Kenya</p>
+              <p className="mt-1 text-sm text-gray-600">Coffee, Tea, Horticulture</p>
+              <p className="mt-3 text-xs text-gray-500">3 cooperatives in pilot</p>
+            </div>
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h3 className="text-lg font-bold text-[#0D3D35]">North Africa</h3>
+              <p className="mt-2 text-sm font-medium text-gray-600">Tunisia</p>
+              <p className="mt-1 text-sm text-gray-600">Olive, Cereals, Vegetables</p>
+              <p className="mt-3 text-xs text-gray-500">Expansion planned</p>
+            </div>
           </div>
         </div>
       </section>

@@ -305,6 +305,31 @@ export function MapPinIcon({ className }: { className?: string }) {
   );
 }
 
+/** Shield with check — Lucide-style */
+export function ShieldCheckIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('w-5 h-5 inline-block align-middle', className)} aria-hidden>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
+/** QR code — Lucide-style */
+export function QrCodeIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={cn('w-5 h-5 inline-block align-middle', className)} aria-hidden>
+      <rect x="3" y="3" width="7" height="7" />
+      <rect x="14" y="3" width="7" height="7" />
+      <rect x="3" y="14" width="4" height="4" />
+      <rect x="9" y="14" width="4" height="4" />
+      <rect x="14" y="14" width="7" height="7" />
+      <path d="M14 18h5" />
+      <path d="M18 14v5" />
+    </svg>
+  );
+}
+
 /** Metric icon key for MagoScoreCard / map / survey */
 export type MetricIconKey = 'deforestation' | 'agroecology' | 'biodiversity' | 'carbon' | 'water';
 
