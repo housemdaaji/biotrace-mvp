@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Zoom control: push below Street/Satellite toggle (mt-3 gap) */
+.leaflet-control-zoom {
+  margin-top: 3.5rem;
+}
+
 /* Pulsing border for deforestation-risk parcels on map */
 .leaflet-interactive.deforestation-risk-parcel {
   animation: pulse-border 1.5s ease-in-out infinite;
