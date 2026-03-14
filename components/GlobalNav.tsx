@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getSession, logout } from '@/lib/auth';
-import { LeafIcon, HomeIcon, MapIcon, ClipboardIcon, CartIcon, MenuIcon } from '@/components/Icons';
+import { LeafIcon, HomeIcon, MapIcon, ClipboardIcon, CartIcon, MenuIcon, InfoIcon } from '@/components/Icons';
 
 interface GlobalNavProps {
   activePage: 'dashboard' | 'map' | 'survey' | 'eudr' | 'buyers' | 'landing';
 }
 
 const NAV_LINKS = [
+  { label: 'About Us', href: '/landing', id: 'landing', Icon: InfoIcon },
   { label: 'Dashboard', href: '/dashboard', id: 'dashboard', Icon: HomeIcon },
   { label: 'Map', href: '/map', id: 'map', Icon: MapIcon },
   { label: 'Register', href: '/survey', id: 'survey', Icon: LeafIcon },
@@ -72,16 +73,6 @@ export default function GlobalNav({ activePage }: GlobalNavProps) {
                 </Link>
               );
             })}
-            <Link
-              href="/landing"
-              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                activePage === 'landing'
-                  ? 'bg-white/20 text-white'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              About Us
-            </Link>
           </div>
         </div>
 
@@ -154,13 +145,6 @@ export default function GlobalNav({ activePage }: GlobalNavProps) {
                 </Link>
               );
             })}
-            <Link
-              href="/landing"
-              onClick={() => setIsMenuOpen(false)}
-              className="block rounded-md px-3 py-2 text-base font-medium text-white/80 hover:bg-white/10 hover:text-white"
-            >
-              About Us
-            </Link>
             {showUserBlock && (
               <>
                 <div className="my-2 flex items-center gap-2 border-t border-[#1A7A6E]/50 pt-3">
