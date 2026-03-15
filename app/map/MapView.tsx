@@ -109,6 +109,69 @@ const INDICES = [
   { id: 'NBR', label: 'Burn/Recovery' },
 ];
 
+const LEGEND_CONFIG: Record<string, { title: string; subtitle: string; items: Array<{ color: string; label: string }> }> = {
+  NDVI: {
+    title: 'NDVI VEGETATION HEALTH',
+    subtitle: 'How green and healthy the crops are',
+    items: [
+      { color: '#006400', label: 'High — Dense healthy vegetation' },
+      { color: '#228B22', label: 'Moderate — Active cover' },
+      { color: '#ADFF2F', label: 'Low — Sparse / stressed' },
+      { color: '#D2691E', label: 'Very Low — Degraded' },
+    ],
+  },
+  NDWI: {
+    title: 'NDWI WATER INDEX',
+    subtitle: 'Surface water and moisture content',
+    items: [
+      { color: '#00008B', label: 'High — Open water / saturated' },
+      { color: '#4169E1', label: 'Adequate — Good soil moisture' },
+      { color: '#ADD8E6', label: 'Moderate — Mild stress' },
+      { color: '#D2691E', label: 'Low — Severe water stress' },
+    ],
+  },
+  NDMI: {
+    title: 'NDMI SOIL MOISTURE',
+    subtitle: 'Canopy and soil moisture levels',
+    items: [
+      { color: '#006400', label: 'High — Well-hydrated canopy' },
+      { color: '#9ACD32', label: 'Good — Adequate moisture' },
+      { color: '#FFD700', label: 'Moderate — Monitor closely' },
+      { color: '#FF4500', label: 'Low — Drought risk' },
+    ],
+  },
+  BSI: {
+    title: 'BSI BARE SOIL INDEX',
+    subtitle: 'Exposed soil and erosion risk',
+    items: [
+      { color: '#006400', label: 'Very Low — Dense ground cover' },
+      { color: '#9ACD32', label: 'Low — Good cover' },
+      { color: '#FFD700', label: 'Moderate — Partial exposure' },
+      { color: '#8B0000', label: 'High — Erosion risk' },
+    ],
+  },
+  EVI: {
+    title: 'EVI ENHANCED VEGETATION',
+    subtitle: 'Canopy productivity and structure',
+    items: [
+      { color: '#006400', label: 'High — Highly productive canopy' },
+      { color: '#228B22', label: 'Good — Active vegetation' },
+      { color: '#ADFF2F', label: 'Low — Possible stress' },
+      { color: '#8B1A1A', label: 'Very Low — Degraded / bare' },
+    ],
+  },
+  NBR: {
+    title: 'NBR BURN / RECOVERY',
+    subtitle: 'Fire history and vegetation recovery',
+    items: [
+      { color: '#006400', label: 'Healthy — No burn detected' },
+      { color: '#9ACD32', label: 'Recovering — Post-fire regrowth' },
+      { color: '#FFD700', label: 'Disturbed — Partial recovery' },
+      { color: '#8B0000', label: 'Burned — High severity' },
+    ],
+  },
+};
+
 /** Deterministic mock value for a cell (0–1). bbox: [west, south, east, north]. */
 function mockCellValue(lat: number, lng: number, _monthIndex: number): number {
   const t = Math.sin(lat * 12.9898 + lng * 78.233) * 43758.5453;
@@ -746,29 +809,24 @@ export default function MapView({
                   </div>
                 </div>
               </div>
-              {/* NDVI Vegetation Health */}
-              <div className="mb-3">
-                <p className="mb-0.5 text-[10px] text-gray-400">How green and healthy the crops are</p>
-                <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">NDVI Vegetation Health</p>
-                <div className="space-y-1">
-                  <div>
-                    <span className="w-3 h-3 rounded-full bg-green-800 inline-block mr-2" />
-                    <span className="text-xs text-gray-600">High</span>
+              {/* Index legend (dynamic by selectedIndex) */}
+              {(() => {
+                const legend = LEGEND_CONFIG[selectedIndex] ?? LEGEND_CONFIG.NDVI;
+                return (
+                  <div key={selectedIndex} className="mb-3 transition-all duration-300">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-700 mt-3">
+                      {legend.title}
+                    </p>
+                    <p className="text-[10px] text-gray-500 mb-1">{legend.subtitle}</p>
+                    {legend.items.map((item) => (
+                      <div key={item.label} className="flex items-center gap-2 text-xs text-gray-600 mb-1">
+                        <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: item.color }} />
+                        {item.label}
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <span className="w-3 h-3 rounded-full bg-green-300 inline-block mr-2" />
-                    <span className="text-xs text-gray-600">Moderate</span>
-                  </div>
-                  <div>
-                    <span className="w-3 h-3 rounded-full bg-yellow-300 inline-block mr-2" />
-                    <span className="text-xs text-gray-600">Low</span>
-                  </div>
-                  <div>
-                    <span className="w-3 h-3 rounded-full bg-red-500 inline-block mr-2" />
-                    <span className="text-xs text-gray-600">Very Low</span>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
               {/* Indicators */}
               <div className="mb-3">
                 <p className="mb-1.5 text-xs font-bold uppercase text-gray-500">Indicators</p>
