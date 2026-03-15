@@ -479,7 +479,7 @@ export default function MapView({
   const [sensorType, setSensorType] = useState<'optical' | 'radar'>('optical');
   const playIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<any>(null);
-  const [selectedIndex, setSelectedIndex] = useState('NDVI');
+  const [selectedIndex, setSelectedIndex] = useState<string>('NDVI');
   const [dateFrom, setDateFrom] = useState('2024-10-01');
   const [dateTo, setDateTo] = useState('2025-03-01');
   const [inputMode, setInputMode] = useState<'draw' | 'coords'>('draw');
@@ -809,9 +809,10 @@ export default function MapView({
                   </div>
                 </div>
               </div>
-              {/* Index legend (dynamic by selectedIndex) */}
+              {/* Index legend (dynamic by selectedIndex — lookup normalized to match LEGEND_CONFIG keys) */}
               {(() => {
-                const legend = LEGEND_CONFIG[selectedIndex] ?? LEGEND_CONFIG.NDVI;
+                const key = (selectedIndex && String(selectedIndex).toUpperCase()) || 'NDVI';
+                const legend = LEGEND_CONFIG[key] ?? LEGEND_CONFIG.NDVI;
                 return (
                   <div key={selectedIndex} className="mb-3 transition-all duration-300">
                     <p className="text-xs font-semibold uppercase tracking-wider text-gray-700 mt-3">
