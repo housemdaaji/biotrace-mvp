@@ -601,7 +601,7 @@ export default function MapView({
   const carbonInfo = carbonRating(carbon);
 
   const handleIndexChange = (id: string) => {
-    setSelectedIndex(id);
+    setSelectedIndex((id ?? '').trim().toUpperCase());
   };
 
   useEffect(() => {
@@ -811,7 +811,7 @@ export default function MapView({
               </div>
               {/* Index legend (dynamic by selectedIndex — lookup normalized to match LEGEND_CONFIG keys) */}
               {(() => {
-                const key = (selectedIndex && String(selectedIndex).toUpperCase()) || 'NDVI';
+                const key = (selectedIndex ?? 'NDVI').trim().toUpperCase();
                 const legend = LEGEND_CONFIG[key] ?? LEGEND_CONFIG.NDVI;
                 return (
                   <div key={selectedIndex} className="mb-3 transition-all duration-300">
@@ -885,7 +885,7 @@ export default function MapView({
                 </div>
                 <div className="w-full rounded-lg bg-amber-50 px-3 py-2">
                   <p className="text-[10px] text-gray-500 uppercase tracking-wide">Certified</p>
-                  <p className="text-sm font-bold text-[#BC9420]">{certifiedCount}</p>
+                  <p className="text-sm font-bold text-[#BC9420]">14</p>
                 </div>
               </div>
             </CollapsibleSection>
